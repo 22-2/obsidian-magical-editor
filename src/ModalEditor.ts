@@ -1,6 +1,7 @@
 /// <reference types="obsidian" />
 import {
   App,
+  Editor,
   EventRef,
   Modal,
   WorkspaceLeaf,
@@ -20,6 +21,8 @@ export interface ModalEditorOptions {
   onClose?: (content: string) => void;
   /** Extra CSS class to add to the modal's contentEl. */
   contentClass?: string;
+  /** If provided, sets the initial cursor position to match this editor's cursor. */
+  sourceEditor?: Editor;
 }
 
 /**
@@ -106,6 +109,13 @@ export class ModalEditor extends Modal {
     fakeView.file = wrapper.magicalEditor.file as any;
 
     wrapper.setContent(initialContent);
+
+    if (this.options.sourceEditor) {
+      setTimeout(() => {
+        const cursor = this.options.sourceEditor!.getCursor();
+        wrapper.magicalEditor.editor.setCursor(cursor);
+      }, 0);
+    }
     wrapper.focus();
   }
 

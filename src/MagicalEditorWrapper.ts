@@ -132,6 +132,22 @@ export class MagicalEditorWrapper {
     target.append(this.containerEl);
     setTimeout(() => this.focus());
     this.targetEl = target;
+
+    // --- Focus Assistance (from obsidian-focus-on-sizer-clicked) ---
+    this.containerEl.addEventListener("mousedown", (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.matches(".cm-sizer") || el.matches(".cm-scroller")) {
+        const editor = this.magicalEditor.editor as any;
+        const pos = editor.posAtMouse?.(e);
+        if (pos) {
+          setTimeout(() => {
+            editor.setCursor(pos);
+            editor.setSelection?.(pos, pos);
+            editor.focus();
+          }, 0);
+        }
+      }
+    });
   }
 
   focus() {
