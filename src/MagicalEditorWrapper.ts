@@ -1,237 +1,196 @@
 /// <reference types="obsidian" />
+import { EditorView } from "@codemirror/view";
 import {
   App,
   Editor,
+  EventRef,
   MarkdownView,
-  Plugin,
   TFile,
-  TFolder,
-  ViewState,
-  Workspace,
   WorkspaceLeaf,
-  type ViewStateResult,
 } from "obsidian";
-import { EditorView } from "@codemirror/view";
-import { StateEffect } from "@codemirror/state";
-import type { }  from 'obsidian-typings';
+import type {} from "obsidian-typings";
 
-const noop = async () => {};
+export interface MagicalEditorWrapperOptions {
+  /**
+   * If provided, the editor opens this real file via `leaf.openFile()`.
+   * This enables MarkdownCodeBlockProcessors and the full rendering pipeline.
+   * When omitted, a virtual (in-memory) file is used instead.
+   */
+  file?: TFile;
 
-interface VirtualMarkdownView extends MarkdownView {
-  [key: string]: any;
+  /**
+   * Initial content to display in the editor.
+   * - If `file` is set: overrides the on-disk file content shown in the editor.
+   * - If `file` is not set: used as the starting content for the virtual editor.
+   * Defaults to `""` when omitted.
+   */
+  initialContent?: string;
+
+  /** Called every time the editor content changes. */
+  onChange?: (content: string) => void;
+
+  /**
+   * If provided, the editor's initial cursor position will be copied
+   * from this editor's current cursor.
+   */
+  sourceEditor?: Editor;
 }
 
 /**
- * The interface that the parent view (the view that hosts the editor) must implement.
- */
-export interface TInlineView {
-  leaf: WorkspaceLeaf;
-  editor: Editor;
-  wrapper: MagicalEditorWrapper;
-  file: TFile;
-  app: App;
-  getViewType(): string;
-  getContent(): Promise<string>;
-  setContent(content: string): void;
-}
-
-export interface ParentViewState {
-  content?: string;
-  [key: string]: unknown;
-}
-
-type Context = {
-  getActiveView: () => TInlineView | null;
-  workspace: {
-    _activeEditor: never;
-    on: Workspace["on"];
-    onLayoutReady: Workspace["onLayoutReady"];
-  };
-  registerEvent: Plugin["registerEvent"];
-  parentView: TInlineView;
-  onChange?: () => void;
-};
-
-/**
- * Manages an inline MarkdownView without a physical file.
+ * Wraps an Obsidian MarkdownView inside a WorkspaceLeaf,
+ * providing a clean API for embedding an editor into a Modal or ItemView.
  *
- * This allows embedding a full-featured Obsidian Markdown editor into any
- * ItemView or Modal without creating or writing to actual vault files.
+ * Supports two modes:
+ * - **File mode** (`options.file` provided): Opens a real file via `leaf.openFile()`.
+ *   This enables MarkdownCodeBlockProcessors and all Obsidian rendering features.
+ * - **Virtual mode** (no `options.file`): Creates an in-memory editor with no
+ *   physical file. Useful for scratch editors or editors not tied to vault files.
  *
- * @example
+ * Save operations are suppressed in both modes to prevent unintended vault writes.
+ *
+ * @example File mode
  * ```ts
- * this.wrapper = new MagicalEditorWrapper({
- *   getActiveView: () => this,
- *   workspace: {
- *     _activeEditor: null as never,
- *     on: this.app.workspace.on.bind(this.app.workspace),
- *     onLayoutReady: this.app.workspace.onLayoutReady.bind(this.app.workspace),
- *   },
- *   registerEvent: (ev) => this.registerEvent(ev),
- *   parentView: this,
- *   onChange: () => { console.log(this.wrapper.getContent()); },
+ * const wrapper = await MagicalEditorWrapper.create(leaf, app, {
+ *   file: tfile,
+ *   initialContent: "override content",
+ *   onChange: (content) => console.log(content),
  * });
+ * containerEl.appendChild(wrapper.view.containerEl);
+ * ```
  *
- * await this.wrapper.initialize(containerEl, null);
+ * @example Virtual mode
+ * ```ts
+ * const wrapper = await MagicalEditorWrapper.create(leaf, app, {
+ *   initialContent: "# Hello",
+ *   onChange: (content) => console.log(content),
+ * });
+ * containerEl.appendChild(wrapper.view.containerEl);
  * ```
  */
 export class MagicalEditorWrapper {
-  public magicalEditor!: VirtualMarkdownView;
-  containerEl!: HTMLDivElement;
-  public targetEl: HTMLElement | null = null;
-  private content = "";
+  /** The underlying MarkdownView. Use this to access the editor and containerEl. */
+  public view!: MarkdownView;
 
-  constructor(private context: Context) {
-    this.context.registerEvent(
-      this.context.workspace.on("active-leaf-change", () => {
-        this.syncActiveEditorState();
-      })
-    );
-    this.context.registerEvent(
-      this.context.workspace.on("layout-change", () => {
-        this.syncActiveEditorState();
-      })
-    );
-    this.context.workspace.onLayoutReady(() => {
-      this.syncActiveEditorState();
-    });
+  private onChangeRef: EventRef | null = null;
+
+  private constructor(
+    private readonly leaf: WorkspaceLeaf,
+    private readonly app: App
+  ) {}
+
+  /**
+   * Creates and initializes a `MagicalEditorWrapper`.
+   * Must be awaited before using the wrapper.
+   */
+  static async create(
+    leaf: WorkspaceLeaf,
+    app: App,
+    options: MagicalEditorWrapperOptions = {}
+  ): Promise<MagicalEditorWrapper> {
+    const wrapper = new MagicalEditorWrapper(leaf, app);
+    await wrapper._init(options);
+    return wrapper;
   }
 
-  /** Initialize the editor and load content. */
-  async initialize(
-    target: HTMLElement,
-    initialState: ParentViewState | null
-  ) {
-    await this.onload(); // Create virtual editor
-    const editorContainer = (target as any).createEl("div", {
-      cls: "magical-editor-sandbox-container",
+  private async _init(options: MagicalEditorWrapperOptions): Promise<void> {
+    if (options.file) {
+      // --- File mode ---
+      // Let Obsidian create the MarkdownView via its own pipeline.
+      // This activates CodeBlockProcessors, metadataCache, etc.
+      await this.leaf.openFile(options.file, { state: { mode: "source" } });
+      this.view = this.leaf.view as MarkdownView;
+    } else {
+      // --- Virtual mode ---
+      // Manually create a MarkdownView. No real file is involved.
+      const view = new MarkdownView(this.leaf);
+      this.leaf.view = view;
+      this.view = view;
+
+      // Attach a virtual stub file to prevent Obsidian from trying to sync
+      view.file = {
+        path: "magical-editor-virtual.md",
+        name: "magical-editor-virtual.md",
+        basename: "magical-editor-virtual",
+        extension: "md",
+        vault: this.app.vault,
+        parent: null,
+        stat: { ctime: 0, mtime: 0, size: 0 },
+      } as never;
+
+      // Preserve the original setViewData before nooping it
+      const originalSetViewData = view.setViewData.bind(view);
+      // @ts-expect-error – private alias
+      view.__setViewData__ = originalSetViewData;
+      view.setViewData = async () => {};
+
+      // @ts-expect-error
+      view.__setViewData__(options.initialContent ?? "", true);
+    }
+
+    this._suppressSaves();
+
+    // Hide the view header (tab title bar) — not needed inside modals/panes
+    // @ts-expect-error
+    (this.view.headerEl as HTMLElement)?.setCssStyles?.({ visibility: "hidden" });
+    (this.view.editor as unknown as  { cm: EditorView }).cm.contentDOM.setCssStyles({
+      paddingTop: "var(--editor-padding-top)",
+      paddingBottom: "var(--editor-padding-bottom)"
     });
-    this.load(editorContainer); // Attach to DOM and focus
 
-    const initialContent =
-      initialState?.content ?? (await this.context.parentView.getContent());
-    this.content = initialContent;
-    this.context.parentView.setContent(initialContent);
+    // If file mode + content override, replace the editor content
+    if (options.file && options.initialContent !== undefined) {
+      this.view.editor.setValue(options.initialContent);
+    }
 
-    if (initialState) {
-      await this.magicalEditor.setState(initialState, {
-        history: false,
+    // onChange listener via Obsidian's workspace event (reliable, not dropped on reinit)
+    if (options.onChange) {
+      this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
+        if (editor === this.view.editor) {
+          options.onChange!(this.view.editor.getValue());
+        }
       });
     }
-    this.syncActiveEditorState();
-    this.setupChangeListener();
-  }
 
-  getContent() {
-    return this.magicalEditor.editor.getValue();
-  }
-
-  setContent(content: string) {
-    this.magicalEditor.__setViewData__(content, true);
-  }
-
-  load(target: HTMLElement) {
-    this.setContent(this.content);
-    target.append(this.containerEl);
-    setTimeout(() => this.focus());
-    this.targetEl = target;
-  }
-
-  focus() {
-    this.magicalEditor.editor.focus();
-  }
-
-  private setupChangeListener(): void {
-    if (!this.context.onChange) return;
-
-    const onChange = this.context.onChange;
-    this.context.registerEvent(
-      this.context.workspace.on("editor-change", (editor) => {
-        if (editor === this.magicalEditor.editor) {
-          onChange();
-        }
-      })
-    );
-  }
-
-  unload() {
-    if (this.targetEl) {
-      (this.targetEl as any).empty();
-      this.targetEl = null;
+    // Restore cursor from a source editor
+    if (options.sourceEditor) {
+      setTimeout(() => {
+        const cursor = options.sourceEditor!.getCursor();
+        this.view.editor.setCursor(cursor);
+      }, 0);
     }
   }
 
-  async onload() {
-    this.containerEl = createEl("div");
-    this.containerEl.addClasses(["magical-editor-container"]);
-
-    this.magicalEditor = new MarkdownView(
-      this.createFakeLeaf()
-    ) as VirtualMarkdownView;
-    // @ts-expect-error
-    this.magicalEditor.leaf.working = false;
-    this.disableSaveOperations();
+  /** Returns the current content of the editor. */
+  getContent(): string {
+    return this.view.editor.getValue();
   }
 
-  private disableSaveOperations() {
-    this.magicalEditor.save = noop;
-    this.magicalEditor.saveTitle = noop;
-    this.magicalEditor.requestSave = noop;
-    this.magicalEditor.__setViewData__ = this.magicalEditor.setViewData;
-    this.magicalEditor.setViewData = noop;
-
-    // Use a dummy file to prevent synchronization with actual files in the vault
-    this.magicalEditor.file = {
-      path: "magical-editor-virtual.md",
-      name: "magical-editor-virtual.md",
-      basename: "magical-editor-virtual",
-      extension: "md",
-      vault: this.context.parentView.app.vault,
-      parent: null as unknown as TFolder,
-      stat: { ctime: 0, mtime: 0, size: 0 },
-    } as TFile;
+  /** Replaces the editor content. */
+  setContent(content: string): void {
+    this.view.editor.setValue(content);
   }
 
-  private createFakeLeaf() {
-    // --- The Magic ---
-    // We create a "fake" leaf object to trick the MarkdownView constructor.
-    // The goal is to make it render inside our `containerEl` instead of the
-    // leaf's main container. This avoids modifying the real leaf,
-    // preventing crashes and instability.
-    const fakeLeaf = {
-      ...this.context.parentView.leaf,
-      containerEl: this.containerEl,
-      setViewState: async (state: ViewState, result: ViewStateResult) => {
-        if (state.type === "markdown") {
-          state.type = this.context.parentView.getViewType();
-        }
-        this.context.parentView.leaf.setViewState(
-          state,
-          result || { history: false }
-        );
-      },
-      __FAKE_LEAF__: true,
-    } as unknown as WorkspaceLeaf;
-    return fakeLeaf;
+  /** Focuses the editor. */
+  focus(): void {
+    this.view.editor.focus();
   }
 
   /**
-   * Syncs Obsidian's internal active editor state with our virtual editor.
-   * This ensures that commands and other editor features work correctly.
+   * Cleans up event listeners.
+   * Call this when the host component (Modal, ItemView, etc.) is being destroyed.
+   * Note: does NOT detach the leaf — the host is responsible for that.
    */
-  private syncActiveEditorState = (): void => {
-    const activeView = this.context.getActiveView();
-    const workspace = this.context.workspace;
-
-    if (activeView?.editor) {
-      // @ts-expect-error
-      workspace._activeEditor = activeView.wrapper.magicalEditor;
-    } else if (
-      // @ts-expect-error
-      workspace._activeEditor?.leaf?.__FAKE_LEAF__
-    ) {
-      // @ts-expect-error
-      workspace._activeEditor = null;
+  destroy(): void {
+    if (this.onChangeRef) {
+      this.app.workspace.offref(this.onChangeRef);
+      this.onChangeRef = null;
     }
-  };
+  }
+
+  private _suppressSaves(): void {
+    this.view.save = async () => {};
+    this.view.requestSave = async () => {};
+    // @ts-expect-error
+    this.view.saveTitle = async () => {};
+  }
 }

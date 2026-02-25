@@ -6,30 +6,36 @@ import {
   TFile,
   Workspace,
   WorkspaceLeaf,
-  MarkdownView,
 } from "obsidian";
-import type {} from 'obsidian-typings';
+import { MagicalEditorWrapper } from "./MagicalEditorWrapper";
 
 export interface ModalEditorOptions {
-  /** Initial content of the editor. Default: "" */
+  /** Initial content of the editor. Default: `""` */
   initialContent?: string;
+
   /**
-   * If provided, the editor opens this real file via `leaf.openFile()`,
-   * which enables MarkdownCodeBlockProcessors and other rendering features.
+   * If provided, the editor opens this real file via `leaf.openFile()`.
+   * This enables MarkdownCodeBlockProcessors and the full Obsidian rendering pipeline.
    * `initialContent` (if also set) will override the file's on-disk content.
    */
   file?: TFile;
-  /** Modal width CSS value. Default: "80vw" */
+
+  /** Modal width CSS value. Default: `"80vw"` */
   width?: string;
-  /** Modal height CSS value. Default: "85vh" */
+
+  /** Modal height CSS value. Default: `"85vh"` */
   height?: string;
+
   /** Called whenever the editor content changes. */
   onChange?: (content: string) => void;
+
   /** Called when the modal is closed, with the final content. */
   onClose?: (content: string) => void;
-  /** Extra CSS class to add to the modal's contentEl. */
+
+  /** Extra CSS class added to the modal's `contentEl`. */
   contentClass?: string;
-  /** If provided, sets the initial cursor position to match this editor's cursor. */
+
+  /** If provided, copies the initial cursor position from this editor. */
   sourceEditor?: Editor;
 }
 
@@ -39,21 +45,34 @@ export interface WorkspaceWithActiveEditor extends Workspace {
 
 /**
  * A ready-to-use Modal that embeds a full Obsidian Markdown editor.
- * No ItemView or file setup required.
  *
- * @example
+ * Internally backed by `MagicalEditorWrapper`, which handles the editor
+ * lifecycle (file mode vs virtual mode, save suppression, onChange, etc.).
+ *
+ * @example Virtual mode (no file)
  * ```ts
  * new ModalEditor(this.app, {
- *   initialContent: node.content,
- *   onChange: (content) => { node.content = content; },
- *   onClose: (content) => { saveNode(node.id, content); },
+ *   initialContent: "# Hello",
+ *   onChange: (content) => console.log(content),
+ *   onClose: (content) => save(content),
+ * }).open();
+ * ```
+ *
+ * @example File mode (with CodeBlockProcessor support)
+ * ```ts
+ * new ModalEditor(this.app, {
+ *   file: tfile,
+ *   initialContent: "override content",
+ *   onChange: (content) => save(content),
  * }).open();
  * ```
  */
 export class ModalEditor extends Modal {
   private hiddenLeaf: WorkspaceLeaf | null = null;
   private prevActiveEditor: any = null;
-  public markdownView!: MarkdownView;
+
+  /** The underlying wrapper. Available after the modal is opened. */
+  public wrapper!: MagicalEditorWrapper;
 
   constructor(app: App, private options: ModalEditorOptions = {}) {
     super(app);
@@ -70,81 +89,61 @@ export class ModalEditor extends Modal {
       width: this.options.width ?? "80vw",
       height: this.options.height ?? "85vh",
     });
+    // contentEl (.modal-content) must be height:100% + flex-column so the chain
+    // modalEl → contentEl → editorArea → view.containerEl is all bounded.
+    // Without this, .cm-scroller has an unbounded height and CM sets an enormous
+    // padding-bottom on .cm-content (the virtual-scroll spacer).
+    contentEl.setCssStyles({
+      height: "100%",
+      padding: "0",
+      display: "flex",
+      flexDirection: "column",
+      boxSizing: "border-box",
+    });
 
     this.prevActiveEditor = (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor;
 
-    // 1. Create a real hidden leaf, like modal-opener
+    // Create a hidden real leaf (same technique as obsidian-modal-opener)
     this.hiddenLeaf = this.app.workspace.createLeafInParent(
       this.app.workspace.rootSplit,
       0
     );
-    
     // @ts-expect-error
-    (this.hiddenLeaf.containerEl as HTMLElement).setCssStyles({
-      display: "none",
+    (this.hiddenLeaf.containerEl as HTMLElement).setCssStyles({ display: "none" });
+
+    // Delegate all editor setup to MagicalEditorWrapper
+    this.wrapper = await MagicalEditorWrapper.create(this.hiddenLeaf, this.app, {
+      file: this.options.file,
+      initialContent: this.options.initialContent,
+      onChange: this.options.onChange,
+      sourceEditor: this.options.sourceEditor,
     });
 
-    let view: MarkdownView;
-
-    if (this.options.file) {
-      // --- File mode: let Obsidian create the view via openFile() ---
-      // This runs the full rendering pipeline (CodeBlockProcessors, etc.)
-      await this.hiddenLeaf.openFile(this.options.file, { state: { mode: "source" } });
-      view = this.hiddenLeaf.view as MarkdownView;
-
-      // Suppress save operations on the view Obsidian created
-      view.save = async () => {};
-      view.requestSave = async () => {};
-      // @ts-expect-error
-      view.saveTitle = async () => {};
-
-      // If an override content was supplied, replace the on-disk content in the editor
-      if (this.options.initialContent !== undefined) {
-        view.editor.setValue(this.options.initialContent);
-      }
-    } else {
-      // --- Virtual mode: manually create a MarkdownView ---
-      view = new MarkdownView(this.hiddenLeaf);
-      this.hiddenLeaf.view = view;
-
-      view.save = async () => {};
-      view.requestSave = async () => {};
-      // @ts-expect-error
-      view.saveTitle = async () => {};
-
-      view.file = {
-        path: "magical-editor-virtual.md",
-        name: "magical-editor-virtual.md",
-        basename: "magical-editor-virtual",
-        extension: "md",
-        vault: this.app.vault,
-        parent: null,
-        stat: { ctime: 0, mtime: 0, size: 0 },
-      } as never;
-
-      const originalSetViewData = view.setViewData.bind(view);
-      // @ts-expect-error
-      view.__setViewData__ = originalSetViewData;
-      view.setViewData = async () => {};
-      // @ts-expect-error
-      view.__setViewData__(this.options.initialContent ?? "", true);
-    }
-
-    this.markdownView = view;
-    // @ts-expect-error
-    (view.headerEl as HTMLElement).setCssStyles({ visibility: "hidden" });
-
+    const view = this.wrapper.view;
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
+    // editorArea must fill the remaining height so .cm-scroller gets a bounded height.
+    // flex:1 + min-height:0 is the standard flexbox pattern for overflow in a flex child.
+    editorArea.setCssStyles({
+      flex: "1 1 0",
+      minHeight: "0",
+      overflow: "hidden",
+      position: "relative",
+    });
+    // view.containerEl (.workspace-leaf) must also fill its parent.
+    (view.containerEl as HTMLElement).setCssStyles({
+      height: "100%",
+      width: "100%",
+    });
     editorArea.appendChild(view.containerEl);
 
-    // Active editor focus handling (same as modal-opener)
+    // Sync _activeEditor so editorCallback commands target this editor
     const setActiveEditor = () => {
       (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = view;
     };
     editorArea.addEventListener("focusin", setActiveEditor);
     setActiveEditor();
 
-    // Background click → focus editor
+    // Clicking the backdrop (outside the CM editor) should focus the editor
     contentEl.addEventListener("mousedown", (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target === contentEl || target === editorArea) {
@@ -158,35 +157,17 @@ export class ModalEditor extends Modal {
       }
     });
 
-    // onChange listener
-    if (this.options.onChange) {
-      this.app.workspace.on("editor-change", (editor) => {
-        if (editor === view.editor) {
-          this.options.onChange?.(view.editor.getValue());
-        }
-      });
-    }
-
-    // Restore cursor position from sourceEditor
-    if (this.options.sourceEditor) {
-      setTimeout(() => {
-        const cursor = this.options.sourceEditor!.getCursor();
-        view.editor.setCursor(cursor);
-      }, 0);
-    }
-
-    setTimeout(() => { view.editor.focus(); }, 0);
+    setTimeout(() => { this.wrapper.focus(); }, 0);
   }
 
   /** Returns the current content of the editor. */
   getContent(): string {
-    return this.markdownView?.editor.getValue() ?? "";
+    return this.wrapper?.getContent() ?? "";
   }
 
   /** Programmatically sets the editor content. */
   setContent(content: string): this {
-    // @ts-expect-error
-    this.markdownView?.__setViewData__?.(content, true) ?? this.markdownView?.setViewData(content, true);
+    this.wrapper?.setContent(content);
     return this;
   }
 
@@ -195,13 +176,15 @@ export class ModalEditor extends Modal {
     this.options.onClose?.(finalContent);
 
     this.contentEl.empty();
+    this.wrapper?.destroy();
 
     if (this.hiddenLeaf) {
       this.hiddenLeaf.detach();
       this.hiddenLeaf = null;
     }
 
-    (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = this.prevActiveEditor ?? null;
+    (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor =
+      this.prevActiveEditor ?? null;
     this.prevActiveEditor = null;
   }
 }

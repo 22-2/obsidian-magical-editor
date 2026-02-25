@@ -1,5 +1,5 @@
 export { MagicalEditorWrapper } from "./MagicalEditorWrapper";
-export type { TInlineView, ParentViewState } from "./MagicalEditorWrapper";
+export type { MagicalEditorWrapperOptions } from "./MagicalEditorWrapper";
 
 export { ModalEditor } from "./ModalEditor";
-export type { ModalEditorOptions } from "./ModalEditor";
+export type { ModalEditorOptions, WorkspaceWithActiveEditor } from "./ModalEditor";
