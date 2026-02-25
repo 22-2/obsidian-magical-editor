@@ -112,6 +112,24 @@ export class ModalEditor extends Modal {
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
     await wrapper.initialize(editorArea, null);
 
+    // --- Focus Assistance (from obsidian-focus-on-sizer-clicked) ---
+    // Background click on modal should focus the editor
+    contentEl.addEventListener("mousedown", (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // If click targets the background or the editor area wrapper itself
+      if (target === contentEl || target === editorArea) {
+        const editor = wrapper.magicalEditor.editor as any;
+        const pos = editor.posAtMouse?.(e);
+        setTimeout(() => {
+          if (pos) {
+            editor.setCursor(pos);
+            editor.setSelection?.(pos, pos);
+          }
+          editor.focus();
+        }, 0);
+      }
+    });
+
     // Backfill references after initialization
     fakeView.editor = wrapper.magicalEditor.editor;
     fakeView.file = wrapper.magicalEditor.file as any;
