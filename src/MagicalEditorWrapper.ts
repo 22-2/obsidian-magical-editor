@@ -11,6 +11,9 @@ import {
   WorkspaceLeaf,
   type ViewStateResult,
 } from "obsidian";
+import { EditorView } from "@codemirror/view";
+import { StateEffect } from "@codemirror/state";
+import type { }  from 'obsidian-typings';
 
 const noop = async () => {};
 
@@ -42,6 +45,7 @@ type Context = {
   workspace: {
     _activeEditor: never;
     on: Workspace["on"];
+    onLayoutReady: Workspace["onLayoutReady"];
   };
   registerEvent: Plugin["registerEvent"];
   parentView: TInlineView;
@@ -61,6 +65,7 @@ type Context = {
  *   workspace: {
  *     _activeEditor: null as never,
  *     on: this.app.workspace.on.bind(this.app.workspace),
+ *     onLayoutReady: this.app.workspace.onLayoutReady.bind(this.app.workspace),
  *   },
  *   registerEvent: (ev) => this.registerEvent(ev),
  *   parentView: this,
@@ -87,11 +92,9 @@ export class MagicalEditorWrapper {
         this.syncActiveEditorState();
       })
     );
-    this.context.registerEvent(
-      this.context.workspace.on("layout-ready", () => {
-        this.syncActiveEditorState();
-      })
-    );
+    this.context.workspace.onLayoutReady(() => {
+      this.syncActiveEditorState();
+    });
   }
 
   /** Initialize the editor and load content. */
@@ -139,9 +142,16 @@ export class MagicalEditorWrapper {
   }
 
   private setupChangeListener(): void {
-    if (this.context.onChange) {
-      this.containerEl.addEventListener("input", this.context.onChange);
-    }
+    if (!this.context.onChange) return;
+
+    const onChange = this.context.onChange;
+    this.context.registerEvent(
+      this.context.workspace.on("editor-change", (editor) => {
+        if (editor === this.magicalEditor.editor) {
+          onChange();
+        }
+      })
+    );
   }
 
   unload() {
@@ -152,12 +162,13 @@ export class MagicalEditorWrapper {
   }
 
   async onload() {
-    this.containerEl = document.createElement("div");
-    (this.containerEl as any).addClasses(["magical-editor-container"]);
+    this.containerEl = createEl("div");
+    this.containerEl.addClasses(["magical-editor-container"]);
 
     this.magicalEditor = new MarkdownView(
       this.createFakeLeaf()
     ) as VirtualMarkdownView;
+    // @ts-expect-error
     this.magicalEditor.leaf.working = false;
     this.disableSaveOperations();
   }

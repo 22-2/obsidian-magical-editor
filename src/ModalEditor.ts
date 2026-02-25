@@ -8,6 +8,7 @@ import {
   WorkspaceLeaf,
 } from "obsidian";
 import { MagicalEditorWrapper, TInlineView } from "./MagicalEditorWrapper";
+import type {} from 'obsidian-typings';
 
 export interface ModalEditorOptions {
   /** Initial content of the editor. Default: "" */
@@ -60,8 +61,10 @@ export class ModalEditor extends Modal {
     if (this.options.contentClass) {
       contentEl.addClass(this.options.contentClass);
     }
-    modalEl.style.width = this.options.width ?? "80vw";
-    modalEl.style.height = this.options.height ?? "85vh";
+    modalEl.setCssStyles({
+      width: this.options.width ?? "80vw",
+      height: this.options.height ?? "85vh",
+    });
 
     this.prevActiveEditor = (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor;
 
@@ -70,7 +73,11 @@ export class ModalEditor extends Modal {
       this.app.workspace.rootSplit,
       0
     );
-    this.hiddenLeaf.containerEl.style.display = "none";
+    
+    // @ts-expect-error
+    (this.hiddenLeaf.containerEl as HTMLElement).setCssStyles({
+      display: "none",
+    });
 
     const leaf = this.hiddenLeaf;
     const app = this.app;
@@ -94,6 +101,7 @@ export class ModalEditor extends Modal {
       workspace: {
         _activeEditor: null as never,
         on: this.app.workspace.on.bind(this.app.workspace),
+        onLayoutReady: this.app.workspace.onLayoutReady.bind(this.app.workspace),
       },
       // Collect EventRefs manually — Modal has no registerEvent like Plugin
       registerEvent: (ev: EventRef) => {
@@ -118,7 +126,8 @@ export class ModalEditor extends Modal {
       const target = e.target as HTMLElement;
       // If click targets the background or the editor area wrapper itself
       if (target === contentEl || target === editorArea) {
-        const editor = wrapper.magicalEditor.editor as any;
+        const editor = wrapper.magicalEditor.editor;
+        // @ts-expect-error
         const pos = editor.posAtMouse?.(e);
         setTimeout(() => {
           if (pos) {

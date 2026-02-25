@@ -32,6 +32,8 @@
     "obsidian": "*"
   },
   "devDependencies": {
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.15",
     "@types/node": "^25.3.0",
     "obsidian": "^1.12.3",
     "obsidian-typings": "4.105.0",
