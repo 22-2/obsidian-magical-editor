@@ -4,6 +4,7 @@ import {
   Editor,
   EventRef,
   Modal,
+  Workspace,
   WorkspaceLeaf,
 } from "obsidian";
 import { MagicalEditorWrapper, TInlineView } from "./MagicalEditorWrapper";
@@ -25,6 +26,10 @@ export interface ModalEditorOptions {
   sourceEditor?: Editor;
 }
 
+export interface WorkspaceWithActiveEditor extends Workspace {
+  _activeEditor: any;
+}
+
 /**
  * A ready-to-use Modal that embeds a full Obsidian Markdown editor.
  * No ItemView or file setup required.
@@ -42,6 +47,7 @@ export class ModalEditor extends Modal {
   private wrapper!: MagicalEditorWrapper;
   private hiddenLeaf: WorkspaceLeaf | null = null;
   private eventRefs: EventRef[] = [];
+  private prevActiveEditor: any = null;
 
   constructor(app: App, private options: ModalEditorOptions = {}) {
     super(app);
@@ -56,6 +62,8 @@ export class ModalEditor extends Modal {
     }
     modalEl.style.width = this.options.width ?? "80vw";
     modalEl.style.height = this.options.height ?? "85vh";
+
+    this.prevActiveEditor = (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor;
 
     // Create a hidden real leaf — needed to satisfy MagicalEditorWrapper's fakeLeaf logic
     this.hiddenLeaf = this.app.workspace.createLeafInParent(
@@ -147,5 +155,8 @@ export class ModalEditor extends Modal {
       this.hiddenLeaf.detach();
       this.hiddenLeaf = null;
     }
+
+    (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = this.prevActiveEditor ?? null;
+    this.prevActiveEditor = null;
   }
 }
