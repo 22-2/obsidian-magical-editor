@@ -6,6 +6,7 @@ import {
   Modal,
   Workspace,
   WorkspaceLeaf,
+  MarkdownView,
 } from "obsidian";
 import { MagicalEditorWrapper, TInlineView } from "./MagicalEditorWrapper";
 import type {} from 'obsidian-typings';
@@ -45,10 +46,9 @@ export interface WorkspaceWithActiveEditor extends Workspace {
  * ```
  */
 export class ModalEditor extends Modal {
-  private wrapper!: MagicalEditorWrapper;
   private hiddenLeaf: WorkspaceLeaf | null = null;
-  private eventRefs: EventRef[] = [];
   private prevActiveEditor: any = null;
+  public markdownView!: MarkdownView;
 
   constructor(app: App, private options: ModalEditorOptions = {}) {
     super(app);
@@ -68,7 +68,7 @@ export class ModalEditor extends Modal {
 
     this.prevActiveEditor = (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor;
 
-    // Create a hidden real leaf — needed to satisfy MagicalEditorWrapper's fakeLeaf logic
+    // 1. Create a real hidden leaf, like modal-opener
     this.hiddenLeaf = this.app.workspace.createLeafInParent(
       this.app.workspace.rootSplit,
       0
@@ -79,54 +79,41 @@ export class ModalEditor extends Modal {
       display: "none",
     });
 
-    const leaf = this.hiddenLeaf;
-    const app = this.app;
-    const initialContent = this.options.initialContent ?? "";
-    let currentContent = initialContent;
+    // 2. Create the markdown view on the leaf
+    const view = new MarkdownView(this.hiddenLeaf);
+    this.hiddenLeaf.view = view;
+    this.markdownView = view;
 
-    // Minimal TInlineView implementation for the modal context
-    const fakeView: TInlineView = {
-      leaf,
-      app,
-      editor: undefined as never, // filled after wrapper.initialize()
-      file: undefined as never,   // filled after wrapper.initialize()
-      wrapper: undefined as never, // filled below
-      getViewType: () => "magical-editor-modal",
-      getContent: async () => currentContent,
-      setContent: (c: string) => { currentContent = c; },
-    };
-
-    const wrapper = new MagicalEditorWrapper({
-      getActiveView: () => fakeView,
-      workspace: {
-        _activeEditor: null as never,
-        on: this.app.workspace.on.bind(this.app.workspace),
-        onLayoutReady: this.app.workspace.onLayoutReady.bind(this.app.workspace),
-      },
-      // Collect EventRefs manually — Modal has no registerEvent like Plugin
-      registerEvent: (ev: EventRef) => {
-        this.eventRefs.push(ev);
-        return ev;
-      },
-      parentView: fakeView,
-      onChange: () => {
-        this.options.onChange?.(wrapper.getContent());
-      },
-    });
-
-    fakeView.wrapper = wrapper;
-    this.wrapper = wrapper;
+    // 3. Disable saving to prevent sync with physical files
+    view.save = async () => {};
+    view.requestSave = async () => {};
+    // @ts-expect-error
+    view.saveTitle = async () => {};
+    view.file = {
+      path: "magical-editor-virtual.md",
+      name: "magical-editor-virtual.md",
+      basename: "magical-editor-virtual",
+      extension: "md",
+      vault: this.app.vault,
+      parent: null,
+      stat: { ctime: 0, mtime: 0, size: 0 },
+    } as never;
 
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
-    await wrapper.initialize(editorArea, null);
+    editorArea.appendChild(view.containerEl);
 
-    // --- Focus Assistance (from obsidian-focus-on-sizer-clicked) ---
-    // Background click on modal should focus the editor
+    // 4. Mimic modal-opener's active editor focus handling
+    const setActiveEditor = () => {
+      (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = view;
+    };
+    editorArea.addEventListener("focusin", setActiveEditor);
+    setActiveEditor();
+
+    // 5. Background click on modal should focus the editor
     contentEl.addEventListener("mousedown", (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      // If click targets the background or the editor area wrapper itself
       if (target === contentEl || target === editorArea) {
-        const editor = wrapper.magicalEditor.editor;
+        const editor = view.editor;
         // @ts-expect-error
         const pos = editor.posAtMouse?.(e);
         setTimeout(() => {
@@ -139,44 +126,49 @@ export class ModalEditor extends Modal {
       }
     });
 
-    // Backfill references after initialization
-    fakeView.editor = wrapper.magicalEditor.editor;
-    fakeView.file = wrapper.magicalEditor.file as any;
+    // 6. Set content and initial focus
+    const initialContent = this.options.initialContent ?? "";
+    await view.setState({ file: view.file, mode: "source" }, { history: false });
+    // @ts-expect-error
+    view.__setViewData__?.(initialContent, true) ?? view.setViewData(initialContent, true);
 
-    wrapper.setContent(initialContent);
+    if (this.options.onChange) {
+      this.app.workspace.on("editor-change", (editor) => {
+        if (editor === view.editor) {
+          this.options.onChange?.(view.editor.getValue());
+        }
+      });
+    }
 
     if (this.options.sourceEditor) {
       setTimeout(() => {
         const cursor = this.options.sourceEditor!.getCursor();
-        wrapper.magicalEditor.editor.setCursor(cursor);
+        view.editor.setCursor(cursor);
       }, 0);
     }
-    wrapper.focus();
+    
+    setTimeout(() => {
+      view.editor.focus();
+    }, 0);
   }
 
   /** Returns the current content of the editor. */
   getContent(): string {
-    return this.wrapper?.getContent() ?? "";
+    return this.markdownView?.editor.getValue() ?? "";
   }
 
   /** Programmatically sets the editor content. */
   setContent(content: string): this {
-    this.wrapper?.setContent(content);
+    // @ts-expect-error
+    this.markdownView?.__setViewData__?.(content, true) ?? this.markdownView?.setViewData(content, true);
     return this;
   }
 
   onClose() {
-    const finalContent = this.wrapper?.getContent() ?? "";
+    const finalContent = this.getContent();
     this.options.onClose?.(finalContent);
 
     this.contentEl.empty();
-    this.wrapper?.unload();
-
-    // Clean up workspace event listeners
-    for (const ref of this.eventRefs) {
-      this.app.workspace.offref(ref);
-    }
-    this.eventRefs = [];
 
     if (this.hiddenLeaf) {
       this.hiddenLeaf.detach();
