@@ -2,18 +2,23 @@
 import {
   App,
   Editor,
-  EventRef,
   Modal,
+  TFile,
   Workspace,
   WorkspaceLeaf,
   MarkdownView,
 } from "obsidian";
-import { MagicalEditorWrapper, TInlineView } from "./MagicalEditorWrapper";
 import type {} from 'obsidian-typings';
 
 export interface ModalEditorOptions {
   /** Initial content of the editor. Default: "" */
   initialContent?: string;
+  /**
+   * If provided, the editor opens this real file via `leaf.openFile()`,
+   * which enables MarkdownCodeBlockProcessors and other rendering features.
+   * `initialContent` (if also set) will override the file's on-disk content.
+   */
+  file?: TFile;
   /** Modal width CSS value. Default: "80vw" */
   width?: string;
   /** Modal height CSS value. Default: "85vh" */
@@ -79,37 +84,67 @@ export class ModalEditor extends Modal {
       display: "none",
     });
 
-    // 2. Create the markdown view on the leaf
-    const view = new MarkdownView(this.hiddenLeaf);
-    this.hiddenLeaf.view = view;
-    this.markdownView = view;
+    let view: MarkdownView;
 
-    // 3. Disable saving to prevent sync with physical files
-    view.save = async () => {};
-    view.requestSave = async () => {};
+    if (this.options.file) {
+      // --- File mode: let Obsidian create the view via openFile() ---
+      // This runs the full rendering pipeline (CodeBlockProcessors, etc.)
+      await this.hiddenLeaf.openFile(this.options.file, { state: { mode: "source" } });
+      view = this.hiddenLeaf.view as MarkdownView;
+
+      // Suppress save operations on the view Obsidian created
+      view.save = async () => {};
+      view.requestSave = async () => {};
+      // @ts-expect-error
+      view.saveTitle = async () => {};
+
+      // If an override content was supplied, replace the on-disk content in the editor
+      if (this.options.initialContent !== undefined) {
+        view.editor.setValue(this.options.initialContent);
+      }
+    } else {
+      // --- Virtual mode: manually create a MarkdownView ---
+      view = new MarkdownView(this.hiddenLeaf);
+      this.hiddenLeaf.view = view;
+
+      view.save = async () => {};
+      view.requestSave = async () => {};
+      // @ts-expect-error
+      view.saveTitle = async () => {};
+
+      view.file = {
+        path: "magical-editor-virtual.md",
+        name: "magical-editor-virtual.md",
+        basename: "magical-editor-virtual",
+        extension: "md",
+        vault: this.app.vault,
+        parent: null,
+        stat: { ctime: 0, mtime: 0, size: 0 },
+      } as never;
+
+      const originalSetViewData = view.setViewData.bind(view);
+      // @ts-expect-error
+      view.__setViewData__ = originalSetViewData;
+      view.setViewData = async () => {};
+      // @ts-expect-error
+      view.__setViewData__(this.options.initialContent ?? "", true);
+    }
+
+    this.markdownView = view;
     // @ts-expect-error
-    view.saveTitle = async () => {};
-    view.file = {
-      path: "magical-editor-virtual.md",
-      name: "magical-editor-virtual.md",
-      basename: "magical-editor-virtual",
-      extension: "md",
-      vault: this.app.vault,
-      parent: null,
-      stat: { ctime: 0, mtime: 0, size: 0 },
-    } as never;
+    (view.headerEl as HTMLElement).setCssStyles({ visibility: "hidden" });
 
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
     editorArea.appendChild(view.containerEl);
 
-    // 4. Mimic modal-opener's active editor focus handling
+    // Active editor focus handling (same as modal-opener)
     const setActiveEditor = () => {
       (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = view;
     };
     editorArea.addEventListener("focusin", setActiveEditor);
     setActiveEditor();
 
-    // 5. Background click on modal should focus the editor
+    // Background click → focus editor
     contentEl.addEventListener("mousedown", (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target === contentEl || target === editorArea) {
@@ -117,21 +152,13 @@ export class ModalEditor extends Modal {
         // @ts-expect-error
         const pos = editor.posAtMouse?.(e);
         setTimeout(() => {
-          if (pos) {
-            editor.setCursor(pos);
-            editor.setSelection?.(pos, pos);
-          }
+          if (pos) { editor.setCursor(pos); editor.setSelection?.(pos, pos); }
           editor.focus();
         }, 0);
       }
     });
 
-    // 6. Set content and initial focus
-    const initialContent = this.options.initialContent ?? "";
-    await view.setState({ file: view.file, mode: "source" }, { history: false });
-    // @ts-expect-error
-    view.__setViewData__?.(initialContent, true) ?? view.setViewData(initialContent, true);
-
+    // onChange listener
     if (this.options.onChange) {
       this.app.workspace.on("editor-change", (editor) => {
         if (editor === view.editor) {
@@ -140,16 +167,15 @@ export class ModalEditor extends Modal {
       });
     }
 
+    // Restore cursor position from sourceEditor
     if (this.options.sourceEditor) {
       setTimeout(() => {
         const cursor = this.options.sourceEditor!.getCursor();
         view.editor.setCursor(cursor);
       }, 0);
     }
-    
-    setTimeout(() => {
-      view.editor.focus();
-    }, 0);
+
+    setTimeout(() => { view.editor.focus(); }, 0);
   }
 
   /** Returns the current content of the editor. */
