@@ -148,8 +148,7 @@ export class ModalEditor extends Modal {
       this.app.workspace.rootSplit,
       0
     );
-    // @ts-expect-error
-    (this.hiddenLeaf.containerEl as HTMLElement).setCssStyles({ display: "none" });
+    this.hiddenLeaf.containerEl.setCssStyles({ display: "none" });
 
     // Delegate all editor setup to MagicalEditorWrapper
     this.wrapper = await MagicalEditorWrapper.create(this.hiddenLeaf, this.app, {
@@ -188,7 +187,6 @@ export class ModalEditor extends Modal {
       const target = e.target as HTMLElement;
       if (target === contentEl || target === editorArea) {
         const editor = view.editor;
-        // @ts-expect-error
         const pos = editor.posAtMouse?.(e);
         setTimeout(() => {
           if (pos) { editor.setCursor(pos); editor.setSelection?.(pos, pos); }

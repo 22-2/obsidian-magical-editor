@@ -34,9 +34,8 @@
   "devDependencies": {
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.15",
-    "@types/node": "^25.3.0",
-    "obsidian": "^1.12.3",
-    "obsidian-typings": "4.105.0",
+    "@types/node": "^25.3.2",
+    "obsidian-typings": "4.106.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }

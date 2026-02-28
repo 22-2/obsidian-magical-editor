@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      obsidian:
+        specifier: ^1.12.3
+        version: 1.12.3(@codemirror/state@6.5.4)(@codemirror/view@6.39.15)
     devDependencies:
       '@codemirror/state':
         specifier: ^6.5.4
@@ -15,14 +19,11 @@ importers:
         specifier: ^6.39.15
         version: 6.39.15
       '@types/node':
-        specifier: ^25.3.0
-        version: 25.3.0
-      obsidian:
-        specifier: ^1.12.3
-        version: 1.12.3(@codemirror/state@6.5.4)(@codemirror/view@6.39.15)
+        specifier: ^25.3.2
+        version: 25.3.2
       obsidian-typings:
-        specifier: 4.105.0
-        version: 4.105.0(@pixi/core@7.2.4)(@pixi/display@7.2.4(@pixi/core@7.2.4))(@pixi/utils@7.2.4)(typescript@5.9.3)
+        specifier: 4.106.0
+        version: 4.106.0(@pixi/core@7.2.4)(@pixi/display@7.2.4(@pixi/core@7.2.4))(@pixi/utils@7.2.4)(typescript@5.9.3)
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(typescript@5.9.3)
@@ -826,14 +827,14 @@ packages:
   '@types/keyv@3.1.4':
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
 
-  '@types/node@22.19.11':
-    resolution: {integrity: sha512-BH7YwL6rA93ReqeQS1c4bsPpcfOmJasG+Fkr6Y59q83f9M1WcBRHR2vM+P9eOisYRcN3ujQoiZY8uk5W+1WL8w==}
+  '@types/node@22.19.13':
+    resolution: {integrity: sha512-akNQMv0wW5uyRpD2v2IEyRSZiR+BeGuoB6L310EgGObO44HSMNT8z1xzio28V8qOrgYaopIDNA18YgdXd+qTiw==}
 
   '@types/node@25.0.3':
     resolution: {integrity: sha512-W609buLVRVmeW693xKfzHeIV6nJGGz98uCPfeXI1ELMLXVeKYZ9m15fAMSaUPBHYLGFsVRcMmSCksQOrZV9BYA==}
 
-  '@types/node@25.3.0':
-    resolution: {integrity: sha512-4K3bqJpXpqfg2XKGK9bpDTc6xO/xoUP/RBWS7AtRMug6zZFaRekiLzjVtAoZMquxoAbzBvy5nxQ7veS5eYzf8A==}
+  '@types/node@25.3.2':
+    resolution: {integrity: sha512-RpV6r/ij22zRRdyBPcxDeKAzH43phWVKEjL2iksqo1Vz3CuBUrgmPpPhALKiRfU7OMCmeeO9vECBMsV0hMTG8Q==}
 
   '@types/offscreencanvas@2019.7.3':
     resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
@@ -1421,8 +1422,8 @@ packages:
     resolution: {integrity: sha512-NuAESUOUMrlIXOfHKzD6bpPu3tYt3xvjNdRIQ+FeT0lNb4K8WR70CaDxhuNguS2XG+GjkyMwOzsN5ZktImfhLA==}
     engines: {node: '>= 0.4'}
 
-  obsidian-typings@4.105.0:
-    resolution: {integrity: sha512-/E4VZsuqbT1uU9jVIPpDBoc65C+boVDP3LGZYyVqh7y4fd/Qv39vckPCQpiLZCC+VhuQWvoE7kjPY5Oj4lU8Dg==}
+  obsidian-typings@4.106.0:
+    resolution: {integrity: sha512-W02nANXVcrA5G5hnt29pW1etUAp91ZfJ5kC0E2AffjtbbYxEhhQi0oEqMvP54OHuH8ZzsvjYvEPIfMnapiXNiQ==}
     peerDependencies:
       typescript: '>=4.8.0'
 
@@ -2274,7 +2275,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.2.0
       '@types/keyv': 3.1.4
-      '@types/node': 25.3.0
+      '@types/node': 25.3.2
       '@types/responselike': 1.0.3
 
   '@types/codemirror@5.60.8':
@@ -2417,16 +2418,16 @@ snapshots:
 
   '@types/jsdom@28.0.0':
     dependencies:
-      '@types/node': 25.3.0
+      '@types/node': 25.3.2
       '@types/tough-cookie': 4.0.5
       parse5: 7.3.0
       undici-types: 7.22.0
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 25.3.0
+      '@types/node': 25.3.2
 
-  '@types/node@22.19.11':
+  '@types/node@22.19.13':
     dependencies:
       undici-types: 6.21.0
 
@@ -2434,7 +2435,7 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
-  '@types/node@25.3.0':
+  '@types/node@25.3.2':
     dependencies:
       undici-types: 7.18.2
 
@@ -2444,7 +2445,7 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 25.3.0
+      '@types/node': 25.3.2
 
   '@types/tern@0.23.9':
     dependencies:
@@ -2458,7 +2459,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 25.3.0
+      '@types/node': 25.3.2
     optional: true
 
   acorn@8.16.0: {}
@@ -2777,7 +2778,7 @@ snapshots:
   electron@39.2.7:
     dependencies:
       '@electron/get': 2.0.3
-      '@types/node': 22.19.11
+      '@types/node': 22.19.13
       extract-zip: 2.0.1
     transitivePeerDependencies:
       - supports-color
@@ -3087,7 +3088,7 @@ snapshots:
   object-keys@1.1.1:
     optional: true
 
-  obsidian-typings@4.105.0(@pixi/core@7.2.4)(@pixi/display@7.2.4(@pixi/core@7.2.4))(@pixi/utils@7.2.4)(typescript@5.9.3):
+  obsidian-typings@4.106.0(@pixi/core@7.2.4)(@pixi/display@7.2.4(@pixi/core@7.2.4))(@pixi/utils@7.2.4)(typescript@5.9.3):
     dependencies:
       '@antfu/utils': 9.2.0
       '@capacitor/core': 5.7.8

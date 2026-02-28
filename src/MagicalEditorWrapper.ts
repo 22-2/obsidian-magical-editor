@@ -1,4 +1,3 @@
-/// <reference types="obsidian" />
 import { EditorView } from "@codemirror/view";
 import {
   App,
@@ -130,9 +129,8 @@ export class MagicalEditorWrapper {
     this._suppressSaves();
 
     // Hide the view header (tab title bar) — not needed inside modals/panes
-    // @ts-expect-error
-    (this.view.headerEl as HTMLElement)?.setCssStyles?.({ visibility: "hidden" });
-    (this.view.editor as unknown as  { cm: EditorView }).cm.contentDOM.setCssStyles({
+    this.view.headerEl?.setCssStyles?.({ visibility: "hidden" });
+    this.view.editor.cm.contentDOM.setCssStyles({
       paddingTop: "var(--editor-padding-top)",
       paddingBottom: "var(--editor-padding-bottom)"
     });
@@ -190,7 +188,6 @@ export class MagicalEditorWrapper {
   private _suppressSaves(): void {
     this.view.save = async () => {};
     this.view.requestSave = async () => {};
-    // @ts-expect-error
     this.view.saveTitle = async () => {};
   }
 }
