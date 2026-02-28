@@ -35,6 +35,12 @@ export interface ModalEditorOptions {
   /** Extra CSS class added to the modal's `contentEl`. */
   contentClass?: string;
 
+  /** Extra CSS class added to the modal's `modalEl`. */
+  modalClass?: string;
+
+  /** Extra CSS class added to the modal's `containerEl`. */
+  containerClass?: string;
+
   /** If provided, copies the initial cursor position from this editor. */
   sourceEditor?: Editor;
 }
@@ -79,27 +85,61 @@ export class ModalEditor extends Modal {
   }
 
   async onOpen() {
-    const { contentEl, modalEl } = this;
+    const { contentEl, modalEl, containerEl } = this;
     contentEl.empty();
     contentEl.addClass("magical-editor-modal-content");
+    modalEl.addClass("magical-editor-modal");
+
+    // Apply background blur directly to the backdrop
+    const modalBg = containerEl.querySelector(".modal-bg") as HTMLElement;
+    if (modalBg) {
+      modalBg.setCssStyles({
+        backdropFilter: "blur(12px)",
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+      });
+    }
+
     if (this.options.contentClass) {
       contentEl.addClass(this.options.contentClass);
     }
+    if (this.options.modalClass) {
+      modalEl.addClass(this.options.modalClass);
+    }
+    if (this.options.containerClass) {
+      containerEl.addClass(this.options.containerClass);
+    }
     modalEl.setCssStyles({
-      width: this.options.width ?? "80vw",
-      height: this.options.height ?? "85vh",
+      width: this.options.width ?? "86vw",
+      height: this.options.height ?? "86vh",
+      maxWidth: "unset",
+      backgroundColor: "var(--background-primary)",
+      border: "1px solid var(--background-modifier-border)",
+      borderRadius: "8px",
+      boxShadow: "var(--shadow-l)",
+      padding: "0",
+      overflow: "hidden",
     });
+
     // contentEl (.modal-content) must be height:100% + flex-column so the chain
     // modalEl → contentEl → editorArea → view.containerEl is all bounded.
-    // Without this, .cm-scroller has an unbounded height and CM sets an enormous
-    // padding-bottom on .cm-content (the virtual-scroll spacer).
     contentEl.setCssStyles({
       height: "100%",
-      padding: "0",
+      padding: "24px",
+      paddingTop: "36px",
       display: "flex",
       flexDirection: "column",
       boxSizing: "border-box",
     });
+
+    const closeBtn = modalEl.querySelector(".modal-close-button") as HTMLElement;
+    if (closeBtn) {
+      closeBtn.setCssStyles({
+        position: "absolute",
+        top: "10px",
+        right: "10px",
+        zIndex: "99",
+      });
+    }
 
     this.prevActiveEditor = (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor;
 
@@ -158,6 +198,7 @@ export class ModalEditor extends Modal {
     });
 
     setTimeout(() => { this.wrapper.focus(); }, 0);
+    setTimeout(() => { modalBg.setCssStyles({ opacity: "1" }); }, 0);
   }
 
   /** Returns the current content of the editor. */
