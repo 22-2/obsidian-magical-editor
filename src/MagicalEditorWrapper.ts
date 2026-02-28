@@ -4,6 +4,8 @@ import {
   EventRef,
   MarkdownView,
   TFile,
+  ViewState,
+  ViewStateResult,
   WorkspaceLeaf,
 } from "obsidian";
 
@@ -31,6 +33,8 @@ export interface MagicalEditorWrapperOptions {
    * from this editor's current cursor.
    */
   sourceEditor?: Editor;
+
+
 }
 
 /**
@@ -69,22 +73,25 @@ export class MagicalEditorWrapper {
   public view!: MarkdownView;
 
   private onChangeRef: EventRef | null = null;
+  private leaf: WorkspaceLeaf;
 
   private constructor(
-    private readonly leaf: WorkspaceLeaf,
-    private readonly app: App
-  ) {}
+    private readonly app: App,
+    leaf: WorkspaceLeaf,
+  ) {
+    this.leaf = this.__createFakeLeaf(leaf);
+  }
 
   /**
    * Creates and initializes a `MagicalEditorWrapper`.
    * Must be awaited before using the wrapper.
    */
   static async create(
-    leaf: WorkspaceLeaf,
     app: App,
+    leaf: WorkspaceLeaf,
     options: MagicalEditorWrapperOptions = {}
   ): Promise<MagicalEditorWrapper> {
-    const wrapper = new MagicalEditorWrapper(leaf, app);
+    const wrapper = new MagicalEditorWrapper(app, leaf);
     await wrapper._init(options);
     return wrapper;
   }
@@ -94,6 +101,7 @@ export class MagicalEditorWrapper {
       // --- File mode ---
       // Let Obsidian create the MarkdownView via its own pipeline.
       // This activates CodeBlockProcessors, metadataCache, etc.
+      invariant(this.leaf !== null, "Leaf must be provided for file mode");
       await this.leaf.openFile(options.file, { state: { mode: "source" } });
       this.view = this.leaf.view as MarkdownView;
     } else {
@@ -187,5 +195,34 @@ export class MagicalEditorWrapper {
     this.view.save = async () => {};
     this.view.requestSave = async () => {};
     this.view.saveTitle = async () => {};
+  }
+
+    private __createFakeLeaf(leaf: WorkspaceLeaf) {
+    // --- The Magic ---
+    // We create a "fake" leaf object to trick the MarkdownView constructor.
+    // The goal is to make it render inside our `containerEl` instead of the
+    // leaf's main container. This avoids modifying the real leaf,
+    // preventing crashes and instability.
+    const fakeLeaf = {
+      ...leaf,
+      containerEl: createEl("div"),
+      setViewState: async (state: ViewState, result: ViewStateResult) => {
+        if (state.type === "markdown") {
+          state.type = leaf.view.getViewType() || "markdown";
+        }
+        leaf.setViewState(
+          state,
+          result || { history: false }
+        );
+      },
+      __FAKE_LEAF__: true,
+    } as unknown as WorkspaceLeaf;
+    return fakeLeaf;
+  }
+}
+
+function invariant(condition: boolean, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(message);
   }
 }

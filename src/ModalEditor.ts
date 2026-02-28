@@ -173,7 +173,7 @@ export class ModalEditor extends Modal {
     this.hiddenLeaf.containerEl.setCssStyles({ display: "none" });
 
     // Delegate all editor setup to MagicalEditorWrapper
-    this.wrapper = await MagicalEditorWrapper.create(this.hiddenLeaf, this.app, {
+    this.wrapper = await MagicalEditorWrapper.create(this.app, this.hiddenLeaf, {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,
