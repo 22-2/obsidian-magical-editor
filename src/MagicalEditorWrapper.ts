@@ -1,4 +1,3 @@
-import { EditorView } from "@codemirror/view";
 import {
   App,
   Editor,
@@ -7,7 +6,6 @@ import {
   TFile,
   WorkspaceLeaf,
 } from "obsidian";
-import type {} from "obsidian-typings";
 
 export interface MagicalEditorWrapperOptions {
   /**

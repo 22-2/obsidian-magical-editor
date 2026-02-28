@@ -1,4 +1,3 @@
-/// <reference types="obsidian" />
 import {
   App,
   Editor,
@@ -73,6 +72,8 @@ export interface WorkspaceWithActiveEditor extends Workspace {
  * }).open();
  * ```
  */
+
+
 export class ModalEditor extends Modal {
   private hiddenLeaf: WorkspaceLeaf | null = null;
   private prevActiveEditor: any = null;
@@ -85,13 +86,24 @@ export class ModalEditor extends Modal {
   }
 
   async onOpen() {
+    this.applyStyles();
+    await this.initEditor();
+    this.setupFocus();
+  }
+
+  /**
+   * モーダルの DOM 要素にスタイルとクラスを適用する。
+   * @returns backdrop 要素 (`modalBg`)。後続処理で opacity アニメーションに使用。
+   */
+  private applyStyles(): HTMLElement | null {
     const { contentEl, modalEl, containerEl } = this;
+
     contentEl.empty();
     contentEl.addClass("magical-editor-modal-content");
     modalEl.addClass("magical-editor-modal");
 
     // Apply background blur directly to the backdrop
-    const modalBg = containerEl.querySelector(".modal-bg") as HTMLElement;
+    const modalBg = containerEl.querySelector(".modal-bg") as HTMLElement | null;
     if (modalBg) {
       modalBg.setCssStyles({
         backdropFilter: "blur(12px)",
@@ -108,6 +120,7 @@ export class ModalEditor extends Modal {
     if (this.options.containerClass) {
       containerEl.addClass(this.options.containerClass);
     }
+
     modalEl.setCssStyles({
       width: this.options.width ?? "86vw",
       height: this.options.height ?? "86vh",
@@ -131,7 +144,7 @@ export class ModalEditor extends Modal {
       boxSizing: "border-box",
     });
 
-    const closeBtn = modalEl.querySelector(".modal-close-button") as HTMLElement;
+    const closeBtn = modalEl.querySelector(".modal-close-button") as HTMLElement | null;
     if (closeBtn) {
       closeBtn.setCssStyles({
         position: "absolute",
@@ -140,6 +153,15 @@ export class ModalEditor extends Modal {
         zIndex: "99",
       });
     }
+    setTimeout(() => { modalBg?.setCssStyles({ opacity: "1" }); }, 0);
+    return modalBg;
+  }
+
+  /**
+   * hiddenLeaf と MagicalEditorWrapper を生成し、エディタ DOM を contentEl に挿入する。
+   */
+  private async initEditor(): Promise<void> {
+    const { contentEl } = this;
 
     this.prevActiveEditor = (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor;
 
@@ -158,7 +180,6 @@ export class ModalEditor extends Modal {
       sourceEditor: this.options.sourceEditor,
     });
 
-    const view = this.wrapper.view;
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
     // editorArea must fill the remaining height so .cm-scroller gets a bounded height.
     // flex:1 + min-height:0 is the standard flexbox pattern for overflow in a flex child.
@@ -168,17 +189,28 @@ export class ModalEditor extends Modal {
       overflow: "hidden",
       position: "relative",
     });
+
+    const view = this.wrapper.view;
     // view.containerEl (.workspace-leaf) must also fill its parent.
     (view.containerEl as HTMLElement).setCssStyles({
       height: "100%",
       width: "100%",
     });
     editorArea.appendChild(view.containerEl);
+  }
+
+  /**
+   * `_activeEditor` の同期、クリックでのフォーカス委譲、初期フォーカスを設定する。
+   */
+  private setupFocus(): void {
+    const { contentEl } = this;
+    const view = this.wrapper.view;
 
     // Sync _activeEditor so editorCallback commands target this editor
     const setActiveEditor = () => {
       (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = view;
     };
+    const editorArea = contentEl.querySelector(".magical-editor-modal-editor-area") as HTMLElement;
     editorArea.addEventListener("focusin", setActiveEditor);
     setActiveEditor();
 
@@ -196,7 +228,6 @@ export class ModalEditor extends Modal {
     });
 
     setTimeout(() => { this.wrapper.focus(); }, 0);
-    setTimeout(() => { modalBg.setCssStyles({ opacity: "1" }); }, 0);
   }
 
   /** Returns the current content of the editor. */

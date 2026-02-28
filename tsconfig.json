@@ -20,10 +20,6 @@
       "DOM",
       "ESNext"
     ],
-    "types": [
-      "node",
-      "obsidian-typings"
-    ]
   },
   "include": [
     "src/**/*.ts"

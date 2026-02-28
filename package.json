@@ -7,9 +7,9 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
@@ -28,14 +28,9 @@
   ],
   "author": "",
   "license": "MIT",
-  "peerDependencies": {
-    "obsidian": "*"
-  },
   "devDependencies": {
-    "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.15",
-    "@types/node": "^25.3.2",
-    "obsidian-typings": "4.106.0",
+    "obsidian": "^1.12.3",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
