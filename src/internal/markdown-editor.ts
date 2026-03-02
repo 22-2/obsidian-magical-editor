@@ -155,6 +155,23 @@ export class EmbeddableMarkdownEditor {
 		// Store reference to self for the patched method BEFORE using it
 		const self = this;
 
+		// Create a robust mock view (owner)
+		// DO NOT USE FakeTFile, because it will cause the editor to be treated as a real file, which will cause various problems
+		const file = app.vault.getMarkdownFiles()[0];
+		const mockView = {
+			app,
+			onMarkdownScroll: () => {},
+			getMode: () => "source",
+			getViewType: () => "markdown",
+			showSearch: () => {},
+			toggleMode: () => {},
+			scroll: 0,
+			file: file,
+			path: file.path,
+			editMode: null as any,
+		};
+		this.mockView = mockView;
+
 		// Use monkey-around to safely patch the method
 		const uninstaller = around(EditorClass.prototype, {
 			buildLocalExtensions: (originalMethod: any) =>
@@ -162,7 +179,9 @@ export class EmbeddableMarkdownEditor {
 					const extensions = originalMethod.call(this);
 
 					// Only add our custom extensions if this is our editor instance
-					if (this === self.editMode) {
+					// We check this.owner === mockView instead of this === self.editMode
+					// because self.editMode is undefined during the constructor execution!
+					if (this.owner === mockView) {
 						// Add placeholder if configured
 						if (self.options.placeholder) {
 							extensions.push(
@@ -267,27 +286,10 @@ export class EmbeddableMarkdownEditor {
 			// This prevents layout crashes in non-standard environments.
 			updateBottomPadding: (originalMethod: any) =>
 				function (this: any) {
-					if (this === self.editMode) return;
+					if (this.owner === mockView) return;
 					return originalMethod.call(this);
 				},
 		});
-
-		// Create a robust mock view (owner)
-		// DO NOT USE FakeTFile, because it will cause the editor to be treated as a real file, which will cause various problems
-		const file = app.vault.getMarkdownFiles()[0];
-		const mockView = {
-			app,
-			onMarkdownScroll: () => {},
-			getMode: () => "source",
-			getViewType: () => "markdown",
-			showSearch: () => {},
-			toggleMode: () => {},
-			scroll: 0,
-			file: file,
-			path: file.path,
-			editMode: null as any,
-		};
-		this.mockView = mockView;
 
 		// Create the editor with the app instance
 		this.editMode = new EditorClass(app, container, mockView);
