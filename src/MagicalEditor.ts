@@ -9,6 +9,7 @@ import {
   Workspace,
   WorkspaceLeaf,
 } from "obsidian";
+import { around } from "monkey-around";
 import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/markdown-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
@@ -52,12 +53,13 @@ export class MagicalEditor {
   private leaf: WorkspaceLeaf;
   private focusinHandler: (() => void) | null = null;
   private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
+  private uninstaller: (() => void) | null = null;
 
   private constructor(
     private readonly app: App,
-    leaf: WorkspaceLeaf,
+    private readonly hostLeaf: WorkspaceLeaf,
   ) {
-    this.leaf = this._createFakeLeaf(leaf);
+    this.leaf = this._createFakeLeaf(hostLeaf);
   }
 
   /** Creates and initializes a `MagicalEditor`. Must be awaited. */
@@ -113,6 +115,14 @@ export class MagicalEditor {
     }
     
     this.enableActiveEditorSync();
+    this._patchWorkspace();
+
+    // Set editor on host view to support embedded previews and other internal features
+    // This allows app.workspace.activeLeaf.view.editor to be populated correctly.
+    if (this.hostLeaf.view) {
+      (this.hostLeaf.view as any).editor = this.editor;
+    }
+
     window.setTimeout(() => this.editor.focus());
   }
 
@@ -206,7 +216,31 @@ export class MagicalEditor {
     handler(); // Apply immediately before first focusin
   }
 
+  private _patchWorkspace(): void {
+    const self = this;
+    this.uninstaller = around(this.app.workspace, {
+      getActiveViewOfType: (next) => function (this: Workspace, type) {
+        if (self.app.workspace.activeLeaf === self.hostLeaf || self.app.workspace.activeLeaf === self.leaf) {
+          if ((type as any).VIEW_TYPE === "markdown" || type === (MarkdownView as any)) {
+            return self.view as any;
+          }
+        }
+        return next.apply(this, [type]);
+      },
+      getActiveFile: (next) => function (this: Workspace) {
+        if (self.app.workspace.activeLeaf === self.hostLeaf || self.app.workspace.activeLeaf === self.leaf) {
+          return (self.view as any).file || next.apply(this);
+        }
+        return next.apply(this);
+      }
+    });
+  }
+
   destroy(): void {
+    if (this.uninstaller) {
+      this.uninstaller();
+      this.uninstaller = null;
+    }
     if (this.onChangeRef) {
       this.app.workspace.offref(this.onChangeRef);
       this.onChangeRef = null;
@@ -243,6 +277,7 @@ export class MagicalEditor {
    * Prevents crashes by not modifying the original leaf.
    */
   private _createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
+    const self = this;
     return {
       ...leaf,
       containerEl: createEl("div"),
@@ -253,6 +288,9 @@ export class MagicalEditor {
         leaf.setViewState(state, result || { history: false });
       },
       __FAKE_LEAF__: true,
+      get view() {
+        return self.view;
+      },
     } as unknown as WorkspaceLeaf;
   }
 }

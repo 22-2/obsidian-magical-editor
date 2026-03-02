@@ -26,7 +26,7 @@ declare module "obsidian" {
     editMode: MarkdownScrollableEditView;
     unload(): void;
   }
-  interface MarkdownScrollableEditView {
+  interface MarkdownScrollableEditView extends Component {
     activeCM: EditorView;
     editor: Editor;
     editorEl: HTMLElement;
@@ -36,9 +36,5 @@ declare module "obsidian" {
     _loaded: boolean;
     onUpdate(update: any, changed: boolean): void;
     set(content: string, focus: boolean): void;
-    register(cb: any): void;
-    unload(): void;
-    onunload(): void;
-    destroy(): void;
   }
 }
