@@ -3,7 +3,6 @@ import {
   Editor,
   Modal,
   TFile,
-  Workspace,
   WorkspaceLeaf,
 } from "obsidian";
 import { MagicalEditorWrapper } from "./MagicalEditorWrapper";
@@ -44,9 +43,6 @@ export interface ModalEditorOptions {
   sourceEditor?: Editor;
 }
 
-export interface WorkspaceWithActiveEditor extends Workspace {
-  _activeEditor: any;
-}
 
 /**
  * A ready-to-use Modal that embeds a full Obsidian Markdown editor.
@@ -76,7 +72,6 @@ export interface WorkspaceWithActiveEditor extends Workspace {
 
 export class ModalEditor extends Modal {
   private hiddenLeaf: WorkspaceLeaf | null = null;
-  private prevActiveEditor: any = null;
 
   /** The underlying wrapper. Available after the modal is opened. */
   public wrapper!: MagicalEditorWrapper;
@@ -88,7 +83,7 @@ export class ModalEditor extends Modal {
   async onOpen() {
     this.applyStyles();
     await this.initEditor();
-    this.setupFocus();
+    setTimeout(() => { this.wrapper.focus(); }, 0);
   }
 
   /**
@@ -163,9 +158,6 @@ export class ModalEditor extends Modal {
   private async initEditor(): Promise<void> {
     const { contentEl } = this;
 
-    this.prevActiveEditor = (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor;
-
-    // Create a hidden real leaf (same technique as obsidian-modal-opener)
     this.hiddenLeaf = this.app.workspace.createLeafInParent(
       this.app.workspace.rootSplit,
       0
@@ -199,36 +191,6 @@ export class ModalEditor extends Modal {
     editorArea.appendChild(view.containerEl);
   }
 
-  /**
-   * `_activeEditor` の同期、クリックでのフォーカス委譲、初期フォーカスを設定する。
-   */
-  private setupFocus(): void {
-    const { contentEl } = this;
-    const view = this.wrapper.view;
-
-    // Sync _activeEditor so editorCallback commands target this editor
-    const setActiveEditor = () => {
-      (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = view;
-    };
-    const editorArea = contentEl.querySelector(".magical-editor-modal-editor-area") as HTMLElement;
-    editorArea.addEventListener("focusin", setActiveEditor);
-    setActiveEditor();
-
-    // Clicking the backdrop (outside the CM editor) should focus the editor
-    contentEl.addEventListener("mousedown", (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target === contentEl || target === editorArea) {
-        const editor = view.editor;
-        const pos = editor.posAtMouse?.(e);
-        setTimeout(() => {
-          if (pos) { editor.setCursor(pos); editor.setSelection?.(pos, pos); }
-          editor.focus();
-        }, 0);
-      }
-    });
-
-    setTimeout(() => { this.wrapper.focus(); }, 0);
-  }
 
   /** Returns the current content of the editor. */
   getContent(): string {
@@ -252,9 +214,5 @@ export class ModalEditor extends Modal {
       this.hiddenLeaf.detach();
       this.hiddenLeaf = null;
     }
-
-    (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor =
-      this.prevActiveEditor ?? null;
-    this.prevActiveEditor = null;
   }
 }
