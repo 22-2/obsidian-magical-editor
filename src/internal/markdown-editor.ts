@@ -3,7 +3,9 @@ import {
 	MarkdownScrollableEditView,
 	Scope,
 	TFile,
+	HoverPopover,
 	WidgetEditorView,
+	Workspace,
 	WorkspaceLeaf,
 } from "obsidian";
 
@@ -11,6 +13,63 @@ import { EditorSelection, Prec } from "@codemirror/state";
 import { EditorView, keymap, placeholder, ViewUpdate } from "@codemirror/view";
 
 import { around } from "monkey-around";
+import { Editor } from "obsidian";
+
+/**
+ * Internal Obsidian types not exposed in the official API
+ */
+interface MarkdownEditorInstance extends MarkdownScrollableEditView {
+	editor: Editor;
+	owner: MockView;
+	onUpdate: (update: ViewUpdate, changed: boolean) => void;
+	updateOptions: () => void;
+	buildLocalExtensions: () => any[];
+	updateBottomPadding: () => void;
+}
+
+interface MarkdownEditorConstructor {
+	new (app: App, container: HTMLElement, owner: MockView): MarkdownEditorInstance;
+	prototype: MarkdownEditorInstance;
+}
+
+interface MockView {
+	app: App;
+	leaf: WorkspaceLeaf;
+	containerEl: HTMLElement;
+	contentEl: HTMLElement;
+	onMarkdownScroll: () => void;
+	getMode: () => string;
+	getViewType: () => string;
+	getDisplayText: () => string;
+	showSearch: () => void;
+	toggleMode: () => void;
+	scroll: number;
+	file: TFile | null;
+	path: string;
+	editMode: MarkdownEditorInstance | null;
+	register: (cb: (editor: EmbeddableMarkdownEditor) => void) => void;
+	// Optional properties for some plugins
+	editor?: Editor;
+	save?: () => Promise<void>;
+	requestSave?: () => Promise<void>;
+	hoverPopover: HoverPopover | null;
+}
+
+interface InternalApp extends App {
+	embedRegistry: {
+		embedByExtension: {
+			md: (
+				info: { app: App; containerEl: HTMLElement },
+				file: TFile | null,
+				content: string
+			) => WidgetEditorView;
+		};
+	};
+}
+
+interface InternalEditor extends Editor {
+	cm: EditorView;
+}
 
 /**
  * Creates an embeddable markdown editor
@@ -35,13 +94,13 @@ export function createEmbeddableMarkdownEditor(
 /**
  * Resolves the markdown editor prototype from the app
  */
-function resolveEditorPrototype(app: App): any {
+function resolveEditorPrototype(app: App): MarkdownEditorConstructor {
 	// Create a temporary editor to resolve the prototype of ScrollableMarkdownEditor
-	const widgetEditorView = app.embedRegistry.embedByExtension.md(
+	const widgetEditorView = (app as unknown as InternalApp).embedRegistry.embedByExtension.md(
 		{ app, containerEl: createDiv() },
-		null as unknown as TFile,
+		null,
 		""
-	) as WidgetEditorView;
+	);
 
 	// Mark as editable to instantiate the editor
 	widgetEditorView.editable = true;
@@ -54,7 +113,7 @@ function resolveEditorPrototype(app: App): any {
 	widgetEditorView.unload();
 
 	// Return the constructor, using 'any' type to bypass the abstract class check
-	return MarkdownEditor.constructor;
+	return MarkdownEditor.constructor as MarkdownEditorConstructor;
 }
 
 interface MarkdownEditorProps {
@@ -99,8 +158,8 @@ export class EmbeddableMarkdownEditor {
 	options: MarkdownEditorProps;
 	initial_value: string;
 	scope: Scope;
-	editMode: MarkdownScrollableEditView;
-	mockView: any;
+	editMode: MarkdownEditorInstance;
+	mockView: MockView;
 
 	// Expose commonly accessed properties
 	get editorEl(): HTMLElement {
@@ -112,13 +171,13 @@ export class EmbeddableMarkdownEditor {
 	get activeCM(): EditorView {
 		return this.editMode.activeCM;
 	}
-	get editor(): any {
+	get editor(): Editor {
 		return this.editMode.editor;
 	}
 	get app(): App {
 		return this.editMode.app;
 	}
-	get owner(): any {
+	get owner(): MockView {
 		return this.editMode.owner;
 	}
 	get _loaded(): boolean {
@@ -141,7 +200,7 @@ export class EmbeddableMarkdownEditor {
 	 */
 	constructor(
 		app: App,
-		EditorClass: any,
+		EditorClass: MarkdownEditorConstructor,
 		container: HTMLElement,
 		options: Partial<MarkdownEditorProps>,
 		leaf?: WorkspaceLeaf
@@ -160,7 +219,7 @@ export class EmbeddableMarkdownEditor {
 		// Create a robust mock view (owner)
 		// DO NOT USE FakeTFile, because it will cause the editor to be treated as a real file, which will cause various problems
 		const file = app.vault.getMarkdownFiles()[0];
-		const mockView = {
+		const mockView: MockView = {
 			app,
 			leaf: leaf || app.workspace.getLeaf(false),
 			containerEl: container,
@@ -174,16 +233,17 @@ export class EmbeddableMarkdownEditor {
 			scroll: 0,
 			file: file,
 			path: file?.path || "",
-			editMode: null as any,
+			editMode: null,
+			hoverPopover: null,
 			// Mimic a component for plugin compatibility
-			register: (cb: any) => self.register(cb),
+			register: (cb: (editor: EmbeddableMarkdownEditor) => void) => self.register(cb),
 		};
 		this.mockView = mockView;
 
 		// Use monkey-around to safely patch the method
 		const uninstaller = around(EditorClass.prototype, {
-			buildLocalExtensions: (originalMethod: any) =>
-				function (this: any) {
+			buildLocalExtensions: (originalMethod: (this: MarkdownEditorInstance) => any[]) =>
+				function (this: MarkdownEditorInstance) {
 					const extensions = originalMethod.call(this);
 
 					// Only add our custom extensions if this is our editor instance
@@ -292,8 +352,8 @@ export class EmbeddableMarkdownEditor {
 				},
 			// Thino subclasses and overrides updateBottomPadding to do nothing.
 			// This prevents layout crashes in non-standard environments.
-			updateBottomPadding: (originalMethod: any) =>
-				function (this: any) {
+			updateBottomPadding: (originalMethod: (this: MarkdownEditorInstance) => void) =>
+				function (this: MarkdownEditorInstance) {
 					if (this.owner === mockView) return;
 					return originalMethod.call(this);
 				},
@@ -315,11 +375,11 @@ export class EmbeddableMarkdownEditor {
 		// Support dynamic updates to editor extensions (e.g. when a plugin is enabled/disabled)
 		this.register(
 			around(app.workspace, {
-				updateOptions: (oldMethod: any) =>
-					function (this: any, ...args: any[]) {
+				updateOptions: (oldMethod: (...args: any[]) => void) =>
+					function (this: Workspace, ...args: any[]) {
 						oldMethod.apply(this, args);
-						if (typeof (self.editMode as any).updateOptions === "function") {
-							(self.editMode as any).updateOptions();
+						if (typeof self.editMode.updateOptions === "function") {
+							self.editMode.updateOptions();
 						}
 					},
 			})
@@ -332,10 +392,10 @@ export class EmbeddableMarkdownEditor {
 		this.register(
 			around(app.workspace, {
 				setActiveLeaf:
-					(oldMethod: any) =>
-					(leaf: WorkspaceLeaf, ...args: any[]) => {
-						if (!this.activeCM?.hasFocus) {
-							oldMethod.call(app.workspace, leaf, ...args);
+					(oldMethod: (leaf: WorkspaceLeaf, ...args: any[]) => void) =>
+					function (this: Workspace, leaf: WorkspaceLeaf, ...args: any[]) {
+						if (!self.activeCM?.hasFocus) {
+							oldMethod.call(this, leaf, ...args);
 						}
 					},
 			})
@@ -349,8 +409,8 @@ export class EmbeddableMarkdownEditor {
 		}
 
 		// Set cursor position if specified
-		if (options.cursorLocation && (this.editMode as any).editor?.cm) {
-			(this.editMode as any).editor.cm.dispatch({
+		if (options.cursorLocation && this.editMode.editor) {
+			(this.editMode.editor as InternalEditor).cm.dispatch({
 				selection: EditorSelection.range(
 					options.cursorLocation.anchor,
 					options.cursorLocation.head
@@ -368,7 +428,7 @@ export class EmbeddableMarkdownEditor {
 
 	// Get the current editor value
 	get value(): string {
-		return (this.editMode as any).editor?.cm?.state.doc.toString() || "";
+		return (this.editMode.editor as InternalEditor).cm?.state.doc.toString() || "";
 	}
 
 	// Set content in the editor
@@ -377,7 +437,7 @@ export class EmbeddableMarkdownEditor {
 	}
 
 	// Register cleanup callback
-	register(cb: any): void {
+	register(cb: (editor: EmbeddableMarkdownEditor) => void): void {
 		this.editMode.register(cb);
 	}
 

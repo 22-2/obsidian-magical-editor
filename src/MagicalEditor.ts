@@ -12,7 +12,7 @@ import {
 import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/markdown-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
-  _activeEditor: any;
+  _activeEditor: MarkdownView | EmbeddableMarkdownEditor | null;
 }
 
 export interface MagicalEditorOptions {
@@ -51,7 +51,7 @@ export class MagicalEditor {
   private onChangeRef: EventRef | null = null;
   private leaf: WorkspaceLeaf;
   private focusinHandler: (() => void) | null = null;
-  private prevActiveEditor: any = null;
+  private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
 
   private constructor(
     private readonly app: App,
@@ -164,9 +164,9 @@ export class MagicalEditor {
       .find(".cm-sizer")
       .addEventListener("mousedown", (e: MouseEvent) => {
         const editor = view.editor;
-        const pos = editor.posAtMouse?.(e);
+        const pos = editor.posAtMouse(e);
         setTimeout(() => {
-          if (pos) editor.setSelection?.(pos, pos);
+          if (pos) editor.setSelection(pos, pos);
           editor.focus();
         });
       });
@@ -174,7 +174,7 @@ export class MagicalEditor {
 
   /** Gets the underlying Obsidian Editor. */
   get editor(): Editor {
-    return (this.view as any).editor;
+    return this.view.editor;
   }
 
   /** Returns the current editor content. */
