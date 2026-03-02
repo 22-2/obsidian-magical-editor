@@ -99,6 +99,7 @@ export class EmbeddableMarkdownEditor {
 	initial_value: string;
 	scope: Scope;
 	editMode: MarkdownScrollableEditView;
+	mockView: any;
 
 	// Expose commonly accessed properties
 	get editorEl(): HTMLElement {
@@ -259,23 +260,48 @@ export class EmbeddableMarkdownEditor {
 
 					return extensions;
 				},
+			// Thino subclasses and overrides updateBottomPadding to do nothing.
+			// This prevents layout crashes in non-standard environments.
+			updateBottomPadding: (originalMethod: any) =>
+				function (this: any) {
+					if (this === self.editMode) return;
+					return originalMethod.call(this);
+				},
 		});
 
-		// Create the editor with the app instance
-		this.editMode = new EditorClass(app, container, {
+		// Create a robust mock view (owner)
+		// DO NOT USE FakeTFile, because it will cause the editor to be treated as a real file, which will cause various problems
+		const file = app.vault.getMarkdownFiles()[0];
+		const mockView = {
 			app,
-			// This mocks the MarkdownView functions, required for proper scrolling
 			onMarkdownScroll: () => {},
 			getMode: () => "source",
-		});
+			getViewType: () => "markdown",
+			showSearch: () => {},
+			toggleMode: () => {},
+			scroll: 0,
+			file: file,
+			path: file.path,
+			editMode: null as any,
+		};
+		this.mockView = mockView;
+
+		// Create the editor with the app instance
+		this.editMode = new EditorClass(app, container, mockView);
+		mockView.editMode = this.editMode;
 
 		// Register the uninstaller for cleanup
 		this.register(uninstaller);
 
 		// Set up the editor relationship for commands to work
 		if (this.owner) {
-			this.owner.editMode = this;
+			this.owner.editMode = this.editMode;
 			this.owner.editor = this.editMode.editor;
+		}
+
+		// Ensure the component is loaded
+		if (typeof (this.editMode as any).load === "function") {
+			(this.editMode as any).load();
 		}
 
 		// Set initial content
