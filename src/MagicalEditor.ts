@@ -130,7 +130,7 @@ export class MagicalEditor {
       onBlur: () => {
         // Sync with Obsidian's active editor logic if needed
       }
-    });
+    }, this.leaf);
   }
 
   private _applyStyles(): void {

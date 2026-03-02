@@ -22,13 +22,14 @@ import { around } from "monkey-around";
 export function createEmbeddableMarkdownEditor(
 	app: App,
 	container: HTMLElement,
-	options: Partial<MarkdownEditorProps>
+	options: Partial<MarkdownEditorProps>,
+	leaf?: WorkspaceLeaf
 ): EmbeddableMarkdownEditor {
 	// Get the editor class
 	const EditorClass = resolveEditorPrototype(app);
 
 	// Create the editor instance
-	return new EmbeddableMarkdownEditor(app, EditorClass, container, options);
+	return new EmbeddableMarkdownEditor(app, EditorClass, container, options, leaf);
 }
 
 /**
@@ -142,7 +143,8 @@ export class EmbeddableMarkdownEditor {
 		app: App,
 		EditorClass: any,
 		container: HTMLElement,
-		options: Partial<MarkdownEditorProps>
+		options: Partial<MarkdownEditorProps>,
+		leaf?: WorkspaceLeaf
 	) {
 		// Store user options first
 		this.options = { ...defaultProperties, ...options };
@@ -160,15 +162,21 @@ export class EmbeddableMarkdownEditor {
 		const file = app.vault.getMarkdownFiles()[0];
 		const mockView = {
 			app,
+			leaf: leaf || app.workspace.getLeaf(false),
+			containerEl: container,
+			contentEl: container,
 			onMarkdownScroll: () => {},
 			getMode: () => "source",
 			getViewType: () => "markdown",
+			getDisplayText: () => file?.basename || "Virtual Editor",
 			showSearch: () => {},
 			toggleMode: () => {},
 			scroll: 0,
 			file: file,
-			path: file.path,
+			path: file?.path || "",
 			editMode: null as any,
+			// Mimic a component for plugin compatibility
+			register: (cb: any) => self.register(cb),
 		};
 		this.mockView = mockView;
 
@@ -303,6 +311,19 @@ export class EmbeddableMarkdownEditor {
 			this.owner.editMode = this.editMode;
 			this.owner.editor = this.editMode.editor;
 		}
+
+		// Support dynamic updates to editor extensions (e.g. when a plugin is enabled/disabled)
+		this.register(
+			around(app.workspace, {
+				updateOptions: (oldMethod: any) =>
+					function (this: any, ...args: any[]) {
+						oldMethod.apply(this, args);
+						if (typeof (self.editMode as any).updateOptions === "function") {
+							(self.editMode as any).updateOptions();
+						}
+					},
+			})
+		);
 
 		// Set initial content
 		this.set(options.value || "", false);
