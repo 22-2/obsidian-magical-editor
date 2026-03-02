@@ -123,6 +123,9 @@ export class EmbeddableMarkdownEditor {
 	get _loaded(): boolean {
 		return this.editMode._loaded;
 	}
+	getMode(): string {
+		return "source";
+	}
 
 	// Mock view properties to satisfy Obsidian internals
 	async save() {}
