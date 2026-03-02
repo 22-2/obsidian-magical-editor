@@ -302,11 +302,6 @@ export class EmbeddableMarkdownEditor {
 			this.owner.editor = this.editMode.editor;
 		}
 
-		// Ensure the component is loaded
-		if (typeof (this.editMode as any).load === "function") {
-			(this.editMode as any).load();
-		}
-
 		// Set initial content
 		this.set(options.value || "", false);
 
