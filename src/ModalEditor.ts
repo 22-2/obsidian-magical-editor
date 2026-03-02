@@ -5,7 +5,7 @@ import {
   TFile,
   WorkspaceLeaf,
 } from "obsidian";
-import { MagicalEditorWrapper } from "./MagicalEditorWrapper";
+import { MagicalEditor } from "./MagicalEditor";
 
 export interface ModalEditorOptions {
   /** Initial content of the editor. Default: `""` */
@@ -74,7 +74,7 @@ export class ModalEditor extends Modal {
   private hiddenLeaf: WorkspaceLeaf | null = null;
 
   /** The underlying wrapper. Available after the modal is opened. */
-  public wrapper!: MagicalEditorWrapper;
+  public wrapper!: MagicalEditor;
 
   constructor(app: App, private options: ModalEditorOptions = {}) {
     super(app);
@@ -165,7 +165,7 @@ export class ModalEditor extends Modal {
     this.hiddenLeaf.containerEl.setCssStyles({ display: "none" });
 
     // Delegate all editor setup to MagicalEditorWrapper
-    this.wrapper = await MagicalEditorWrapper.create(this.app, this.hiddenLeaf, {
+    this.wrapper = await MagicalEditor.create(this.app, this.hiddenLeaf, {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,
