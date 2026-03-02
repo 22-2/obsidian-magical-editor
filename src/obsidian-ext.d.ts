@@ -13,4 +13,32 @@ declare module "obsidian" {
     posAtMouse(event: MouseEvent): EditorPosition;
     cm: EditorView;
   }
+  interface App {
+    embedRegistry: {
+      embedByExtension: {
+        md: (info: any, file: TFile, content: string) => WidgetEditorView;
+      };
+    };
+  }
+  interface WidgetEditorView {
+    editable: boolean;
+    showEditor(): void;
+    editMode: MarkdownScrollableEditView;
+    unload(): void;
+  }
+  interface MarkdownScrollableEditView {
+    activeCM: EditorView;
+    editor: Editor;
+    editorEl: HTMLElement;
+    containerEl: HTMLElement;
+    app: App;
+    owner: any;
+    _loaded: boolean;
+    onUpdate(update: any, changed: boolean): void;
+    set(content: string, focus: boolean): void;
+    register(cb: any): void;
+    unload(): void;
+    onunload(): void;
+    destroy(): void;
+  }
 }

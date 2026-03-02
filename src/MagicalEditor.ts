@@ -9,6 +9,7 @@ import {
   Workspace,
   WorkspaceLeaf,
 } from "obsidian";
+import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/markdown-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
   _activeEditor: any;
@@ -30,6 +31,9 @@ export interface MagicalEditorOptions {
 
   /** If provided, copies cursor position from this editor on init. */
   sourceEditor?: Editor;
+
+  /** Custom placeholder for the editor. */
+  placeholder?: string;
 }
 
 /**
@@ -41,8 +45,9 @@ export interface MagicalEditorOptions {
  * Saves are suppressed in both modes.
  */
 export class MagicalEditor {
-  public view!: MarkdownView;
+  public view!: MarkdownView | EmbeddableMarkdownEditor;
 
+  private isVirtual = false;
   private onChangeRef: EventRef | null = null;
   private leaf: WorkspaceLeaf;
   private focusinHandler: (() => void) | null = null;
@@ -71,74 +76,94 @@ export class MagicalEditor {
       invariant(this.leaf !== null, "Leaf must be provided for file mode");
       await this.leaf.openFile(options.file, { state: { mode: "source" } });
       this.view = this.leaf.view as MarkdownView;
+      this.isVirtual = false;
     } else {
-      this._initVirtualView(options.initialContent ?? "");
+      this._initVirtualView(options);
+      this.isVirtual = true;
     }
 
     this._suppressSaves();
     this._applyStyles();
 
     if (options.file && options.initialContent !== undefined) {
-      this.view.editor.setValue(options.initialContent);
+      this.editor.setValue(options.initialContent);
     }
 
     if (options.onChange) {
-      this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
-        if (editor === this.view.editor) {
-          options.onChange!(this.view.editor.getValue());
-        }
-      });
+      if (!this.isVirtual) {
+        this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
+          if (editor === (this.view as MarkdownView).editor) {
+            options.onChange!(editor.getValue());
+          }
+        });
+      } else {
+        // EmbeddableMarkdownEditor handles onChange via options
+        // We set it during _initVirtualView
+      }
     }
 
     if (options.sourceEditor) {
       setTimeout(() => {
-        this.view.editor.setCursor(options.sourceEditor!.getCursor());
+        this.editor.setCursor(options.sourceEditor!.getCursor());
       }, 0);
     }
 
-    this._registerMousedownHandler();
+    if (!this.isVirtual) {
+      this._registerMousedownHandler();
+    }
+    
     this.enableActiveEditorSync();
-    window.setTimeout(() => this.view.editor.focus());
+    window.setTimeout(() => this.editor.focus());
   }
 
-  private _initVirtualView(initialContent: string): void {
-    const view = new MarkdownView(this.leaf);
-    this.leaf.view = view;
-    this.view = view;
-
-    // Attach a stub file to prevent Obsidian from trying to sync
-    view.file = {
-      path: "magical-editor-virtual.md",
-      name: "magical-editor-virtual.md",
-      basename: "magical-editor-virtual",
-      extension: "md",
-      vault: this.app.vault,
-      parent: null,
-      stat: { ctime: 0, mtime: 0, size: 0 },
-    } as never;
-
-    const originalSetViewData = view.setViewData.bind(view);
-    // @ts-expect-error – private alias
-    view.__setViewData__ = originalSetViewData;
-    view.setViewData = async () => {};
-
-    // @ts-expect-error
-    view.__setViewData__(initialContent, true);
-  }
-
-  private _applyStyles(): void {
-    this.view.headerEl?.setCssStyles?.({ visibility: "hidden" });
-    this.view.editor.cm.contentDOM.setCssStyles({
-      paddingTop: "var(--editor-padding-top)",
-      paddingBottom: "var(--editor-padding-bottom)",
+  private _initVirtualView(options: MagicalEditorOptions): void {
+    // We use the leaf's containerEl as the parent for the embeddable editor
+    // because ModalEditor will append this leaf's containerEl to its own area.
+    this.view = createEmbeddableMarkdownEditor(this.app, this.leaf.containerEl, {
+      value: options.initialContent ?? "",
+      placeholder: options.placeholder,
+      onChange: () => {
+        if (options.onChange) {
+          options.onChange(this.getContent());
+        }
+      },
+      onBlur: () => {
+        // Sync with Obsidian's active editor logic if needed
+      }
     });
   }
 
+  private _applyStyles(): void {
+    if (!this.isVirtual) {
+      const view = this.view as MarkdownView;
+      view.headerEl?.setCssStyles?.({ visibility: "hidden" });
+      view.editor.cm.contentDOM.setCssStyles({
+        paddingTop: "var(--editor-padding-top)",
+        paddingBottom: "var(--editor-padding-bottom)",
+      });
+    } else {
+      // Embeddable editor styles
+      const embed = this.view as EmbeddableMarkdownEditor;
+      embed.containerEl.setCssStyles({
+        height: "100%",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+      });
+      embed.activeCM.contentDOM.setCssStyles({
+        paddingTop: "var(--editor-padding-top)",
+        paddingBottom: "var(--editor-padding-bottom)",
+      });
+    }
+  }
+
   private _registerMousedownHandler(): void {
-    this.view.containerEl
+    if (this.isVirtual) return;
+    const view = this.view as MarkdownView;
+    view.containerEl
       .find(".cm-sizer")
       .addEventListener("mousedown", (e: MouseEvent) => {
-        const editor = this.view.editor;
+        const editor = view.editor;
         const pos = editor.posAtMouse?.(e);
         setTimeout(() => {
           if (pos) editor.setSelection?.(pos, pos);
@@ -147,19 +172,24 @@ export class MagicalEditor {
       });
   }
 
+  /** Gets the underlying Obsidian Editor. */
+  get editor(): Editor {
+    return (this.view as any).editor;
+  }
+
   /** Returns the current editor content. */
   getContent(): string {
-    return this.view.editor.getValue();
+    return this.editor.getValue();
   }
 
   /** Replaces the editor content. */
   setContent(content: string): void {
-    this.view.editor.setValue(content);
+    this.editor.setValue(content);
   }
 
   /** Focuses the editor. */
   focus(): void {
-    this.view.editor.focus();
+    this.editor.focus();
   }
 
   /**
@@ -183,18 +213,29 @@ export class MagicalEditor {
     }
 
     if (this.focusinHandler) {
-      this.view.containerEl.removeEventListener("focusin", this.focusinHandler);
+      if (this.view instanceof EmbeddableMarkdownEditor) {
+        this.view.containerEl.removeEventListener("focusin", this.focusinHandler);
+      } else {
+        (this.view as MarkdownView).containerEl.removeEventListener("focusin", this.focusinHandler);
+      }
       this.focusinHandler = null;
       (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor =
         this.prevActiveEditor ?? null;
       this.prevActiveEditor = null;
     }
+
+    if (this.isVirtual) {
+      (this.view as EmbeddableMarkdownEditor).destroy();
+    }
   }
 
   private _suppressSaves(): void {
-    this.view.save = async () => {};
-    this.view.requestSave = async () => {};
-    this.view.saveTitle = async () => {};
+    if (!this.isVirtual) {
+      const view = this.view as MarkdownView;
+      view.save = async () => {};
+      view.requestSave = async () => {};
+      view.saveTitle = async () => {};
+    }
   }
 
   /**

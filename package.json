@@ -29,7 +29,10 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.15",
+    "@types/node": "^22.0.0",
+    "monkey-around": "^3.0.0",
     "obsidian": "^1.12.3",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
