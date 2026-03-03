@@ -110,10 +110,7 @@ export class MagicalEditor {
       }, 0);
     }
 
-    if (!this.isVirtual) {
-      this._registerMousedownHandler();
-    }
-    
+    this._registerMousedownHandler();
     this.enableActiveEditorSync();
     this._patchWorkspace();
 
@@ -168,7 +165,6 @@ export class MagicalEditor {
   }
 
   private _registerMousedownHandler(): void {
-    if (this.isVirtual) return;
     const view = this.view as MarkdownView;
     view.containerEl
       .find(".cm-sizer")
