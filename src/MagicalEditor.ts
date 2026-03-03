@@ -121,7 +121,6 @@ export class MagicalEditor {
     }
 
     this.enableActiveEditorSync();
-    this._patchWorkspace();
 
     window.setTimeout(() => this.editor.focus());
   }
@@ -188,26 +187,6 @@ export class MagicalEditor {
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
-
-  private _patchWorkspace(): void {
-    const self = this;
-    this.uninstaller = around(this.app.workspace, {
-      getActiveViewOfType: (next) => function (this: Workspace, type) {
-        if (self.app.workspace.activeLeaf === self.hostLeaf || self.app.workspace.activeLeaf === self.leaf) {
-          if ((type as any).VIEW_TYPE === "markdown" || type === (MarkdownView as any)) {
-            return self.view as any;
-          }
-        }
-        return next.apply(this, [type]);
-      },
-      getActiveFile: (next) => function (this: Workspace) {
-        if (self.app.workspace.activeLeaf === self.hostLeaf || self.app.workspace.activeLeaf === self.leaf) {
-          return (self.view as any).file || next.apply(this);
-        }
-        return next.apply(this);
-      }
-    });
-  }
 
   /**
    * Creates a fake leaf that renders into a detached `div` instead of the real leaf's container.
