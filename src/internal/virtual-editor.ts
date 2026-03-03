@@ -21,11 +21,7 @@ export interface VirtualEditorOptions {
  * Creates an in-memory `EmbeddableMarkdownEditor` with no physical file.
  */
 export class VirtualEditor {
-  public readonly view: EmbeddableMarkdownEditor;
-
-  private constructor(view: EmbeddableMarkdownEditor) {
-    this.view = view;
-  }
+  private constructor(public readonly view: EmbeddableMarkdownEditor) { }
 
   static create(
     app: App,

@@ -21,15 +21,7 @@ export interface FileEditorOptions {
  * Saves are suppressed so the file is never auto-saved.
  */
 export class FileEditor {
-  public readonly view: MarkdownView;
-
-  private constructor(
-    private readonly app: App,
-    private readonly leaf: WorkspaceLeaf,
-    view: MarkdownView,
-  ) {
-    this.view = view;
-  }
+  private constructor(public readonly view: MarkdownView) {  }
 
   static async create(
     app: App,
@@ -39,7 +31,7 @@ export class FileEditor {
     await leaf.openFile(options.file, { state: { mode: "source" } });
     const view = leaf.view as MarkdownView;
 
-    const instance = new FileEditor(app, leaf, view);
+    const instance = new FileEditor(view);
     instance._suppressSaves();
     instance._applyStyles();
 
@@ -58,7 +50,6 @@ export class FileEditor {
       }, 0);
     }
 
-    instance._registerMousedownHandler();
     return instance;
   }
 
@@ -78,19 +69,6 @@ export class FileEditor {
       paddingTop: "var(--editor-padding-top)",
       paddingBottom: "var(--editor-padding-bottom)",
     });
-  }
-
-  private _registerMousedownHandler(): void {
-    this.view.containerEl
-      .find(".cm-sizer")
-      .addEventListener("mousedown", (e: MouseEvent) => {
-        const editor = this.view.editor;
-        const pos = editor.posAtMouse(e);
-        setTimeout(() => {
-          if (pos) editor.setSelection(pos, pos);
-          editor.focus();
-        });
-      });
   }
 
   destroy(): void {

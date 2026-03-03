@@ -120,7 +120,8 @@ export class MagicalEditor {
       this.isVirtual = true;
     }
 
-    this.enableActiveEditorSync();
+    this._enableActiveEditorSync();
+    this._registerMousedownHandler();
 
     window.setTimeout(() => this.editor.focus());
   }
@@ -149,20 +150,6 @@ export class MagicalEditor {
     this.editor.focus();
   }
 
-  /**
-   * Registers `_activeEditor` sync so `editorCallback` commands target this editor when focused.
-   * Saves the previous `_activeEditor` and restores it on `destroy()`.
-   */
-  enableActiveEditorSync(): void {
-    const ws = this.app.workspace as WorkspaceWithActiveEditor;
-    this.prevActiveEditor = ws._activeEditor ?? null;
-
-    const handler = () => { ws._activeEditor = this.view; };
-    this.focusinHandler = handler;
-    this.view.containerEl.addEventListener("focusin", handler);
-    handler(); // Apply immediately before first focusin
-  }
-
   destroy(): void {
     if (this.uninstaller) {
       this.uninstaller();
@@ -189,6 +176,20 @@ export class MagicalEditor {
   // -------------------------------------------------------------------------
 
   /**
+   * Registers `_activeEditor` sync so `editorCallback` commands target this editor when focused.
+   * Saves the previous `_activeEditor` and restores it on `destroy()`.
+   */
+  private _enableActiveEditorSync(): void {
+    const ws = this.app.workspace as WorkspaceWithActiveEditor;
+    this.prevActiveEditor = ws._activeEditor ?? null;
+
+    const handler = () => { ws._activeEditor = this.view; };
+    this.focusinHandler = handler;
+    this.view.containerEl.addEventListener("focusin", handler);
+    handler(); // Apply immediately before first focusin
+  }
+
+  /**
    * Creates a fake leaf that renders into a detached `div` instead of the real leaf's container.
    * Prevents crashes by not modifying the original leaf.
    */
@@ -208,5 +209,19 @@ export class MagicalEditor {
         return self.view;
       },
     } as unknown as WorkspaceLeaf;
+  }
+
+
+  private _registerMousedownHandler(): void {
+    this.view.containerEl
+      .find(".cm-sizer")
+      .addEventListener("mousedown", (e: MouseEvent) => {
+        const editor = this.view.editor;
+        const pos = editor.posAtMouse(e);
+        setTimeout(() => {
+          if (pos) editor.setSelection(pos, pos);
+          editor.focus();
+        });
+      });
   }
 }
