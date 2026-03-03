@@ -398,9 +398,8 @@ export class EmbeddableMarkdownEditor {
 		mockView.addChild(this.editMode);
 
 		// Initialize mock view and editor
-		// @ts-ignore
 		if (typeof this.editMode.load === "function") {
-			// @ts-ignore
+			// embeded-viewに必須
 			this.editMode.load();
 		}
 		mockView.load();
