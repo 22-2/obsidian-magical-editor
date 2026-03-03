@@ -1,13 +1,11 @@
 import {
-	App,
-	Component,
-	MarkdownScrollableEditView,
-	Scope,
-	TFile,
-	HoverPopover,
-	WidgetEditorView,
-	Workspace,
-	WorkspaceLeaf,
+    App,
+    Component,
+    MarkdownScrollableEditView,
+    Scope,
+    TFile, WidgetEditorView,
+    Workspace,
+    WorkspaceLeaf
 } from "obsidian";
 
 import { EditorSelection, Prec } from "@codemirror/state";

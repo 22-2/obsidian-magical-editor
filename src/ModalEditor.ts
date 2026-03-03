@@ -1,9 +1,9 @@
 import {
-  App,
-  Editor,
-  Modal,
-  TFile,
-  WorkspaceLeaf,
+    App,
+    Editor,
+    Modal,
+    TFile,
+    WorkspaceLeaf
 } from "obsidian";
 import { MagicalEditor } from "./MagicalEditor";
 

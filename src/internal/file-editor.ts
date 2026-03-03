@@ -1,9 +1,9 @@
 import {
-  App,
-  Editor,
-  MarkdownView,
-  TFile,
-  WorkspaceLeaf,
+    App,
+    Editor,
+    MarkdownView,
+    TFile,
+    WorkspaceLeaf
 } from "obsidian";
 
 export interface FileEditorOptions {

@@ -1,17 +1,16 @@
 import {
-  App,
-  Editor,
-  EventRef,
-  MarkdownView,
-  TFile,
-  ViewState,
-  ViewStateResult,
-  Workspace,
-  WorkspaceLeaf,
+    App,
+    Editor,
+    EventRef,
+    MarkdownView,
+    TFile,
+    ViewState,
+    ViewStateResult,
+    Workspace,
+    WorkspaceLeaf
 } from "obsidian";
-import { around } from "monkey-around";
-import { EmbeddableMarkdownEditor } from "./internal/markdown-editor";
 import { FileEditor } from "./internal/file-editor";
+import { EmbeddableMarkdownEditor } from "./internal/markdown-editor";
 import { VirtualEditor } from "./internal/virtual-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {

@@ -1,11 +1,11 @@
 import {
-  App,
-  Editor,
-  WorkspaceLeaf,
+    App,
+    Editor,
+    WorkspaceLeaf
 } from "obsidian";
 import {
-  createEmbeddableMarkdownEditor,
-  EmbeddableMarkdownEditor,
+    createEmbeddableMarkdownEditor,
+    EmbeddableMarkdownEditor
 } from "./markdown-editor";
 
 export interface VirtualEditorOptions {
