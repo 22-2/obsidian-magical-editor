@@ -18,10 +18,10 @@ export interface ModalEditorOptions {
    */
   file?: TFile;
 
-  /** Modal width CSS value. Default: `"80vw"` */
+  /** Modal width CSS value. Default: `"86vw"` */
   width?: string;
 
-  /** Modal height CSS value. Default: `"85vh"` */
+  /** Modal height CSS value. Default: `"86vh"` */
   height?: string;
 
   /** Called whenever the editor content changes. */
@@ -47,7 +47,7 @@ export interface ModalEditorOptions {
 /**
  * A ready-to-use Modal that embeds a full Obsidian Markdown editor.
  *
- * Internally backed by `MagicalEditorWrapper`, which handles the editor
+ * Internally backed by `MagicalEditor`, which handles the editor
  * lifecycle (file mode vs virtual mode, save suppression, onChange, etc.).
  *
  * @example Virtual mode (no file)
@@ -68,8 +68,6 @@ export interface ModalEditorOptions {
  * }).open();
  * ```
  */
-
-
 export class ModalEditor extends Modal {
   private hiddenLeaf: WorkspaceLeaf | null = null;
 
@@ -153,7 +151,7 @@ export class ModalEditor extends Modal {
   }
 
   /**
-   * hiddenLeaf と MagicalEditorWrapper を生成し、エディタ DOM を contentEl に挿入する。
+   * hiddenLeaf と MagicalEditor を生成し、エディタ DOM を contentEl に挿入する。
    */
   private async initEditor(): Promise<void> {
     const { contentEl } = this;
@@ -164,7 +162,6 @@ export class ModalEditor extends Modal {
     );
     this.hiddenLeaf.containerEl.setCssStyles({ display: "none" });
 
-    // Delegate all editor setup to MagicalEditorWrapper
     this.wrapper = await MagicalEditor.create(this.app, this.hiddenLeaf, {
       file: this.options.file,
       initialContent: this.options.initialContent,

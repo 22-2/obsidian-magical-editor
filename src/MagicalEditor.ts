@@ -10,7 +10,9 @@ import {
   WorkspaceLeaf,
 } from "obsidian";
 import { around } from "monkey-around";
-import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/markdown-editor";
+import { EmbeddableMarkdownEditor } from "./internal/markdown-editor";
+import { FileEditor } from "./internal/file-editor";
+import { VirtualEditor } from "./internal/virtual-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
   _activeEditor: MarkdownView | EmbeddableMarkdownEditor | null;
@@ -33,7 +35,7 @@ export interface MagicalEditorOptions {
   /** If provided, copies cursor position from this editor on init. */
   sourceEditor?: Editor;
 
-  /** Custom placeholder for the editor. */
+  /** Custom placeholder for the editor (virtual mode only). */
   placeholder?: string;
 }
 
@@ -41,13 +43,16 @@ export interface MagicalEditorOptions {
  * Wraps an Obsidian MarkdownView inside a WorkspaceLeaf for embedding in a Modal or ItemView.
  *
  * - **File mode** (`options.file`): Opens a real file; enables CodeBlockProcessors and full rendering.
+ *   Internally backed by `FileEditor`.
  * - **Virtual mode**: In-memory editor with no physical file.
+ *   Internally backed by `VirtualEditor`.
  *
  * Saves are suppressed in both modes.
  */
 export class MagicalEditor {
   public view!: MarkdownView | EmbeddableMarkdownEditor;
 
+  private _impl!: FileEditor | VirtualEditor;
   private isVirtual = false;
   private onChangeRef: EventRef | null = null;
   private leaf: WorkspaceLeaf;
@@ -68,119 +73,66 @@ export class MagicalEditor {
     leaf: WorkspaceLeaf,
     options: MagicalEditorOptions = {},
   ): Promise<MagicalEditor> {
-    const editor = new MagicalEditor(app, leaf);
-    await editor._init(options);
-    return editor;
+    const me = new MagicalEditor(app, leaf);
+    await me._init(options);
+    return me;
   }
 
   private async _init(options: MagicalEditorOptions): Promise<void> {
     if (options.file) {
-      invariant(this.leaf !== null, "Leaf must be provided for file mode");
-      await this.leaf.openFile(options.file, { state: { mode: "source" } });
-      this.view = this.leaf.view as MarkdownView;
+      // --- File mode ---
+      const impl = await FileEditor.create(this.app, this.leaf, {
+        file: options.file,
+        initialContent: options.initialContent,
+        sourceEditor: options.sourceEditor,
+      });
+      this._impl = impl;
+      this.view = impl.view;
       this.isVirtual = false;
-    } else {
-      this._initVirtualView(options);
-      this.isVirtual = true;
-    }
 
-    this._suppressSaves();
-    this._applyStyles();
-
-    if (options.file && options.initialContent !== undefined) {
-      this.editor.setValue(options.initialContent);
-    }
-
-    if (options.onChange) {
-      if (!this.isVirtual) {
+      if (options.onChange) {
         this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
           if (editor === (this.view as MarkdownView).editor) {
             options.onChange!(editor.getValue());
           }
         });
-      } else {
-        // EmbeddableMarkdownEditor handles onChange via options
-        // We set it during _initVirtualView
       }
+
+      // Populate `hostLeaf.view.editor` so Obsidian internals can find it.
+      if (this.hostLeaf.view) {
+        (this.hostLeaf.view as any).editor = this.editor;
+      }
+    } else {
+      // --- Virtual mode ---
+      const impl = VirtualEditor.create(
+        this.app,
+        this.leaf,
+        {
+          initialContent: options.initialContent,
+          onChange: options.onChange,
+          sourceEditor: options.sourceEditor,
+          placeholder: options.placeholder,
+        },
+        () => this.getContent(),
+      );
+      this._impl = impl;
+      this.view = impl.view;
+      this.isVirtual = true;
     }
 
-    if (options.sourceEditor) {
-      setTimeout(() => {
-        this.editor.setCursor(options.sourceEditor!.getCursor());
-      }, 0);
-    }
-
-    this._registerMousedownHandler();
     this.enableActiveEditorSync();
     this._patchWorkspace();
-
-    // Set editor on host view to support embedded previews and other internal features
-    // This allows app.workspace.activeLeaf.view.editor to be populated correctly.
-    if (this.hostLeaf.view) {
-      (this.hostLeaf.view as any).editor = this.editor;
-    }
 
     window.setTimeout(() => this.editor.focus());
   }
 
-  private _initVirtualView(options: MagicalEditorOptions): void {
-    // We use the leaf's containerEl as the parent for the embeddable editor
-    // because ModalEditor will append this leaf's containerEl to its own area.
-    this.view = createEmbeddableMarkdownEditor(this.app, this.leaf.containerEl, {
-      value: options.initialContent ?? "",
-      placeholder: options.placeholder,
-      onChange: () => {
-        if (options.onChange) {
-          options.onChange(this.getContent());
-        }
-      },
-      onBlur: () => {
-        // Sync with Obsidian's active editor logic if needed
-      }
-    }, this.leaf);
-  }
-
-  private _applyStyles(): void {
-    if (!this.isVirtual) {
-      const view = this.view as MarkdownView;
-      view.headerEl?.setCssStyles?.({ visibility: "hidden" });
-      view.editor.cm.contentDOM.setCssStyles({
-        paddingTop: "var(--editor-padding-top)",
-        paddingBottom: "var(--editor-padding-bottom)",
-      });
-    } else {
-      // Embeddable editor styles
-      const embed = this.view as EmbeddableMarkdownEditor;
-      embed.containerEl.setCssStyles({
-        height: "100%",
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-      });
-      embed.activeCM.contentDOM.setCssStyles({
-        paddingTop: "var(--editor-padding-top)",
-        paddingBottom: "var(--editor-padding-bottom)",
-      });
-    }
-  }
-
-  private _registerMousedownHandler(): void {
-    const view = this.view as MarkdownView;
-    view.containerEl
-      .find(".cm-sizer")
-      .addEventListener("mousedown", (e: MouseEvent) => {
-        const editor = view.editor;
-        const pos = editor.posAtMouse(e);
-        setTimeout(() => {
-          if (pos) editor.setSelection(pos, pos);
-          editor.focus();
-        });
-      });
-  }
+  // -------------------------------------------------------------------------
+  // Public API
+  // -------------------------------------------------------------------------
 
   /** Gets the underlying Obsidian Editor. */
   get editor(): Editor {
-    return this.view.editor;
+    return this._impl.editor;
   }
 
   /** Returns the current editor content. */
@@ -212,6 +164,31 @@ export class MagicalEditor {
     handler(); // Apply immediately before first focusin
   }
 
+  destroy(): void {
+    if (this.uninstaller) {
+      this.uninstaller();
+      this.uninstaller = null;
+    }
+    if (this.onChangeRef) {
+      this.app.workspace.offref(this.onChangeRef);
+      this.onChangeRef = null;
+    }
+
+    if (this.focusinHandler) {
+      this.view.containerEl.removeEventListener("focusin", this.focusinHandler);
+      this.focusinHandler = null;
+      (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor =
+        this.prevActiveEditor ?? null;
+      this.prevActiveEditor = null;
+    }
+
+    this._impl.destroy();
+  }
+
+  // -------------------------------------------------------------------------
+  // Private helpers
+  // -------------------------------------------------------------------------
+
   private _patchWorkspace(): void {
     const self = this;
     this.uninstaller = around(this.app.workspace, {
@@ -230,42 +207,6 @@ export class MagicalEditor {
         return next.apply(this);
       }
     });
-  }
-
-  destroy(): void {
-    if (this.uninstaller) {
-      this.uninstaller();
-      this.uninstaller = null;
-    }
-    if (this.onChangeRef) {
-      this.app.workspace.offref(this.onChangeRef);
-      this.onChangeRef = null;
-    }
-
-    if (this.focusinHandler) {
-      if (this.view instanceof EmbeddableMarkdownEditor) {
-        this.view.containerEl.removeEventListener("focusin", this.focusinHandler);
-      } else {
-        (this.view as MarkdownView).containerEl.removeEventListener("focusin", this.focusinHandler);
-      }
-      this.focusinHandler = null;
-      (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor =
-        this.prevActiveEditor ?? null;
-      this.prevActiveEditor = null;
-    }
-
-    if (this.isVirtual) {
-      (this.view as EmbeddableMarkdownEditor).destroy();
-    }
-  }
-
-  private _suppressSaves(): void {
-    if (!this.isVirtual) {
-      const view = this.view as MarkdownView;
-      view.save = async () => {};
-      view.requestSave = async () => {};
-      view.saveTitle = async () => {};
-    }
   }
 
   /**
@@ -289,8 +230,4 @@ export class MagicalEditor {
       },
     } as unknown as WorkspaceLeaf;
   }
-}
-
-function invariant(condition: boolean, message: string): asserts condition {
-  if (!condition) throw new Error(message);
 }
