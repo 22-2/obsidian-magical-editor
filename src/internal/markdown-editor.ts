@@ -154,6 +154,7 @@ const defaultProperties: MarkdownEditorProps = {
 	onChange: () => {},
 };
 
+// app.workspace.activeEditorにセットされる
 /**
  * A markdown editor that can be embedded in any container
  */
@@ -228,8 +229,11 @@ export class EmbeddableMarkdownEditor {
 		this.initial_value = this.options.value!;
 		this.scope = new Scope(app.scope);
 
-		// Prevent Mod+Enter default behavior
-		this.scope.register(["Mod"], "Enter", () => true);
+		// Prevent Mod+Enter default behavior and trigger onSubmit
+		this.scope.register(["Mod"], "Enter", () => {
+			this.options.onEnter(this, true, false);
+			return true;
+		});
 
 		// Store reference to self for the patched method BEFORE using it
 		const self = this;
