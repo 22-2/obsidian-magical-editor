@@ -432,18 +432,6 @@ export class EmbeddableMarkdownEditor {
 		// Set initial content
 		this.set(options.value || "", false);
 
-		// Prevent active leaf changes while focused
-		this.register(
-			around(app.workspace, {
-				setActiveLeaf:
-					(oldMethod: (leaf: WorkspaceLeaf, ...args: any[]) => void) =>
-					function (this: Workspace, leaf: WorkspaceLeaf, ...args: any[]) {
-						if (!self.activeCM?.hasFocus) {
-							oldMethod.call(this, leaf, ...args);
-						}
-					},
-			})
-		);
 
 		// Blur and focus event handlers are now handled via EditorView.domEventHandlers in buildLocalExtensions
 
