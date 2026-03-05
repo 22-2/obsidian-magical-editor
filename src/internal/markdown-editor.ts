@@ -136,6 +136,7 @@ interface MarkdownEditorProps {
 	onBlur: (editor: EmbeddableMarkdownEditor) => void;
 	onPaste: (e: ClipboardEvent, editor: EmbeddableMarkdownEditor) => void;
 	onChange: (update: ViewUpdate) => void;
+	parentScope?: Scope;
 }
 
 const defaultProperties: MarkdownEditorProps = {
@@ -227,7 +228,7 @@ export class EmbeddableMarkdownEditor {
 		// Store user options first
 		this.options = { ...defaultProperties, ...options };
 		this.initial_value = this.options.value!;
-		this.scope = new Scope(app.scope);
+		this.scope = new Scope(this.options.parentScope || app.scope);
 
 		// Prevent Mod+Enter default behavior and trigger onSubmit
 		this.scope.register(["Mod"], "Enter", () => {

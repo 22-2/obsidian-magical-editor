@@ -3,6 +3,7 @@ import {
     Editor,
     EventRef,
     MarkdownView,
+    Scope,
     TFile,
     ViewState,
     ViewStateResult,
@@ -36,6 +37,7 @@ export interface MagicalEditorOptions {
 
   /** Custom placeholder for the editor (virtual mode only). */
   placeholder?: string;
+  parentScope?: Scope;
 }
 
 /**
@@ -111,6 +113,7 @@ export class MagicalEditor {
           onChange: options.onChange,
           sourceEditor: options.sourceEditor,
           placeholder: options.placeholder,
+          parentScope: options.parentScope || (this.hostLeaf.view as any)?.scope || this.app.scope,
         },
         () => this.getContent(),
       );

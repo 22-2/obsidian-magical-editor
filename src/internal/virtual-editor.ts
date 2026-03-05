@@ -1,6 +1,7 @@
 import {
     App,
     Editor,
+    Scope,
     WorkspaceLeaf
 } from "obsidian";
 import {
@@ -13,6 +14,7 @@ export interface VirtualEditorOptions {
   onChange?: (content: string) => void;
   sourceEditor?: Editor;
   placeholder?: string;
+  parentScope?: Scope;
 }
 
 /**
@@ -41,6 +43,7 @@ export class VirtualEditor {
         onBlur: () => {
           // Reserved for future active-editor sync if needed
         },
+        parentScope: options.parentScope,
       },
       leaf,
     );
