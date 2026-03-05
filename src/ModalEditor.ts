@@ -75,7 +75,7 @@ export class ModalEditor extends Modal {
   private hiddenLeaf: WorkspaceLeaf | null = null;
 
   /** The underlying wrapper. Available after the modal is opened. */
-  public wrapper!: MagicalEditor;
+  public editor!: MagicalEditor;
 
   constructor(app: App, private options: ModalEditorOptions = {}) {
     super(app);
@@ -84,7 +84,7 @@ export class ModalEditor extends Modal {
   async onOpen() {
     this.applyStyles();
     await this.initEditor();
-    setTimeout(() => { this.wrapper.focus(); }, 0);
+    setTimeout(() => { this.editor.focus(); }, 0);
   }
 
   /**
@@ -165,7 +165,7 @@ export class ModalEditor extends Modal {
     );
     this.hiddenLeaf.containerEl.setCssStyles({ display: "none" });
 
-    this.wrapper = await MagicalEditor.create(this.app, this.hiddenLeaf, {
+    this.editor = await MagicalEditor.create(this.app, this.hiddenLeaf, {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,
@@ -183,7 +183,7 @@ export class ModalEditor extends Modal {
       position: "relative",
     });
 
-    const view = this.wrapper.view;
+    const view = this.editor.view;
     // view.containerEl (.workspace-leaf) must also fill its parent.
     (view.containerEl as HTMLElement).setCssStyles({
       height: "100%",
@@ -195,12 +195,12 @@ export class ModalEditor extends Modal {
 
   /** Returns the current content of the editor. */
   getContent(): string {
-    return this.wrapper?.getContent() ?? "";
+    return this.editor?.getContent() ?? "";
   }
 
   /** Programmatically sets the editor content. */
   setContent(content: string): this {
-    this.wrapper?.setContent(content);
+    this.editor?.setContent(content);
     return this;
   }
 
@@ -209,7 +209,7 @@ export class ModalEditor extends Modal {
     this.options.onClose?.(finalContent);
 
     this.contentEl.empty();
-    this.wrapper?.destroy();
+    this.editor?.destroy();
 
     if (this.hiddenLeaf) {
       this.hiddenLeaf.detach();
