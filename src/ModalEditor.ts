@@ -41,6 +41,9 @@ export interface ModalEditorOptions {
 
   /** If provided, copies the initial cursor position from this editor. */
   sourceEditor?: Editor;
+
+  /** Placeholder text for the editor. Default: `"Hello, Magical Editor!"` */
+  placeholder?: string;
 }
 
 
@@ -167,6 +170,7 @@ export class ModalEditor extends Modal {
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,
       sourceEditor: this.options.sourceEditor,
+      placeholder: this.options.placeholder || "Hello, Magical Editor!",
     });
 
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
