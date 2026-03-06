@@ -36,12 +36,6 @@ export async function createInternalEditor(
       impl.editor.setValue(options.initialContent);
     }
 
-    if (fakeLeaf.view.getViewType() === "markdown") {
-      setTimeout(() => {
-        impl.editor.setCursor(sourceEditor.getCursor());
-      }, 0);
-    }
-
     return impl;
   } else {
     // --- Virtual mode ---
@@ -65,13 +59,6 @@ export async function createInternalEditor(
     );
 
     const impl = new VirtualEditor(view);
-
-    if (fakeLeaf.view.getViewType() === "markdown") {
-      setTimeout(() => {
-        impl.editor.setCursor(sourceEditor.getCursor());
-      }, 0);
-    }
-
     return impl;
   }
 }

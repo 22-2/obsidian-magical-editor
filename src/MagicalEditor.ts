@@ -97,8 +97,12 @@ export class MagicalEditor {
 
     this._enableActiveEditorSync();
     this._registerMousedownHandler();
-
-    window.setTimeout(() => this.editor.focus());
+    window.setTimeout(() => {
+      this.editor.focus();
+      if (this.sourceLeaf.view.getViewType() === "markdown") {
+        this.editor.setCursor((this.sourceLeaf.view as MarkdownView).editor.getCursor());
+      }
+    });
   }
 
   // -------------------------------------------------------------------------

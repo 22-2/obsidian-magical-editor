@@ -84,7 +84,6 @@ export class ModalEditor extends Modal {
   async onOpen() {
     this.applyStyles();
     await this.initEditor();
-    setTimeout(() => this.editor.focus());
   }
 
   /**
