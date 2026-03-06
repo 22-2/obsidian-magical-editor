@@ -18,7 +18,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "keywords": [
     "obsidian",
@@ -31,9 +32,13 @@
   "devDependencies": {
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.15",
+    "@playwright/test": "^1.58.2",
     "@types/node": "^22.0.0",
+    "electron": "^40.8.0",
     "monkey-around": "^3.0.0",
     "obsidian": "^1.12.3",
+    "obsidian-e2e-toolkit": "github:22-2/obsidian-e2e-toolkit#0.1.7",
+    "playwright": "^1.58.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
