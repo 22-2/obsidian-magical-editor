@@ -5,6 +5,8 @@ import {
     MarkdownView,
     Scope,
     TFile,
+    ViewState,
+    ViewStateResult,
     Workspace,
     WorkspaceLeaf
 } from "obsidian";
@@ -54,21 +56,25 @@ export class MagicalEditor {
   private _impl!: FileEditor | VirtualEditor;
   private isVirtual = false;
   private onChangeRef: EventRef | null = null;
+  private leaf: WorkspaceLeaf;
   private focusinHandler: (() => void) | null = null;
   private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
+  private uninstaller: (() => void) | null = null;
 
   private constructor(
     private readonly app: App,
     private readonly hostLeaf: WorkspaceLeaf,
-  ) {}
+  ) {
+    this.leaf = this._createFakeLeaf(hostLeaf);
+  }
 
   /** Creates and initializes a `MagicalEditor`. Must be awaited. */
   static async create(
     app: App,
-    hostLeaf: WorkspaceLeaf,
+    leaf: WorkspaceLeaf,
     options: MagicalEditorOptions = {},
   ): Promise<MagicalEditor> {
-    const me = new MagicalEditor(app, hostLeaf);
+    const me = new MagicalEditor(app, leaf);
     await me._init(options);
     return me;
   }
@@ -76,7 +82,7 @@ export class MagicalEditor {
   private async _init(options: MagicalEditorOptions): Promise<void> {
     if (options.file) {
       // --- File mode ---
-      const impl = await FileEditor.create(this.app, {
+      const impl = await FileEditor.create(this.app, this.leaf, {
         file: options.file,
         initialContent: options.initialContent,
         sourceEditor: options.sourceEditor,
@@ -92,11 +98,16 @@ export class MagicalEditor {
           }
         });
       }
+
+      // Populate `hostLeaf.view.editor` so Obsidian internals can find it.
+      if (this.hostLeaf.view) {
+        (this.hostLeaf.view as any).editor = this.editor;
+      }
     } else {
       // --- Virtual mode ---
       const impl = VirtualEditor.create(
         this.app,
-        this.hostLeaf,
+        this.leaf,
         {
           initialContent: options.initialContent,
           onChange: options.onChange,
@@ -142,6 +153,10 @@ export class MagicalEditor {
   }
 
   destroy(): void {
+    if (this.uninstaller) {
+      this.uninstaller();
+      this.uninstaller = null;
+    }
     if (this.onChangeRef) {
       this.app.workspace.offref(this.onChangeRef);
       this.onChangeRef = null;
@@ -175,6 +190,29 @@ export class MagicalEditor {
     this.view.containerEl.addEventListener("focusin", handler);
     handler(); // Apply immediately before first focusin
   }
+
+  /**
+   * Creates a fake leaf that renders into a detached `div` instead of the real leaf's container.
+   * Prevents crashes by not modifying the original leaf.
+   */
+  private _createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
+    const self = this;
+    return {
+      ...leaf,
+      containerEl: createEl("div"),
+      setViewState: async (state: ViewState, result: ViewStateResult) => {
+        if (state.type === "markdown") {
+          state.type = leaf.view.getViewType() || "markdown";
+        }
+        leaf.setViewState(state, result || { history: false });
+      },
+      __FAKE_LEAF__: true,
+      get view() {
+        return self.view;
+      },
+    } as unknown as WorkspaceLeaf;
+  }
+
 
   private _registerMousedownHandler(): void {
     this.view.containerEl

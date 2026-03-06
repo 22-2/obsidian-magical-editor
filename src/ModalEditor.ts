@@ -2,7 +2,8 @@ import {
     App,
     Editor,
     Modal,
-    TFile
+    TFile,
+    WorkspaceLeaf
 } from "obsidian";
 import { MagicalEditor } from "./MagicalEditor";
 
@@ -71,6 +72,8 @@ export interface ModalEditorOptions {
  * ```
  */
 export class ModalEditor extends Modal {
+  private hiddenLeaf: WorkspaceLeaf | null = null;
+
   /** The underlying wrapper. Available after the modal is opened. */
   public editor!: MagicalEditor;
 
@@ -151,20 +154,18 @@ export class ModalEditor extends Modal {
   }
 
   /**
-   * MagicalEditor を生成し、エディタ DOM を contentEl に挿入する。
+   * hiddenLeaf と MagicalEditor を生成し、エディタ DOM を contentEl に挿入する。
    */
   private async initEditor(): Promise<void> {
     const { contentEl } = this;
 
-    // Use the modal's leaf (available via `this.scope` context or just use a dummy leaf
-    // if only virtual mode is used, but MagicalEditor needs a leaf).
-    // Actually, MagicalEditor's File mode now creates its own leaf,
-    // but its Virtual mode still needs a 'hostLeaf'.
-    // We can use the modal's container leaf or create one.
-    // For simplicity, we'll let MagicalEditor use a temporary leaf if needed.
-    const hostLeaf = (this.app.workspace as any).activeLeaf;
+    this.hiddenLeaf = this.app.workspace.createLeafInParent(
+      this.app.workspace.rootSplit,
+      0
+    );
+    this.hiddenLeaf.containerEl.setCssStyles({ display: "none" });
 
-    this.editor = await MagicalEditor.create(this.app, hostLeaf, {
+    this.editor = await MagicalEditor.create(this.app, this.hiddenLeaf, {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,
@@ -173,6 +174,8 @@ export class ModalEditor extends Modal {
     });
 
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
+    // editorArea must fill the remaining height so .cm-scroller gets a bounded height.
+    // flex:1 + min-height:0 is the standard flexbox pattern for overflow in a flex child.
     editorArea.setCssStyles({
       flex: "1 1 0",
       minHeight: "0",
@@ -181,6 +184,7 @@ export class ModalEditor extends Modal {
     });
 
     const view = this.editor.view;
+    // view.containerEl (.workspace-leaf) must also fill its parent.
     (view.containerEl as HTMLElement).setCssStyles({
       height: "100%",
       width: "100%",
@@ -206,5 +210,10 @@ export class ModalEditor extends Modal {
 
     this.contentEl.empty();
     this.editor?.destroy();
+
+    if (this.hiddenLeaf) {
+      this.hiddenLeaf.detach();
+      this.hiddenLeaf = null;
+    }
   }
 }
