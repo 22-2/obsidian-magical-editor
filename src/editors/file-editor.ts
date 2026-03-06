@@ -22,7 +22,6 @@ export interface FileEditorOptions {
 export class FileEditor implements InternalEditor {
   constructor(public readonly view: MarkdownView) {
     this._suppressSaves();
-    this._applyStyles();
   }
 
   get editor(): Editor {
@@ -33,15 +32,6 @@ export class FileEditor implements InternalEditor {
     this.view.save = async () => {};
     this.view.requestSave = async () => {};
     this.view.saveTitle = async () => {};
-  }
-
-  private _applyStyles(): void {
-    this.view.headerEl?.setCssStyles?.({ visibility: "hidden" });
-
-    this.view.editor.cm.contentDOM.setCssStyles({
-      paddingTop: "var(--editor-padding-top)",
-      paddingBottom: "var(--editor-padding-bottom)",
-    });
   }
 
   destroy(): void {

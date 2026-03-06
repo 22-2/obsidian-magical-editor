@@ -5,6 +5,8 @@ import {
     MarkdownView,
     Scope,
     TFile,
+    ViewState,
+    ViewStateResult,
     Workspace,
     WorkspaceLeaf
 } from "obsidian";
@@ -49,7 +51,7 @@ export class MagicalEditor {
 
   private _impl!: InternalEditor;
   private onChangeRef: EventRef | null = null;
-  private fakeLeaf: WorkspaceLeaf | null = null;
+  private leafToMount!: WorkspaceLeaf;
   private focusinHandler: (() => void) | null = null;
   private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
   private uninstaller: (() => void) | null = null;
@@ -76,11 +78,11 @@ export class MagicalEditor {
   }
 
   private async _init(): Promise<void> {
-    this.fakeLeaf = await this._createFakeLeaf(this.sourceLeaf);
+    this.leafToMount = this._createFakeLeaf(this.sourceLeaf);
 
     this._impl = await createInternalEditor(
       this.app,
-      this.fakeLeaf,
+      this.leafToMount,
       this.sourceLeaf,
       this.options,
       () => this.getContent(),
@@ -97,6 +99,7 @@ export class MagicalEditor {
 
     this._enableActiveEditorSync();
     this._registerMousedownHandler();
+    this._applyStyles();
     window.setTimeout(() => {
       this.editor.focus();
       if (this.sourceLeaf.view.getViewType() === "markdown") {
@@ -126,7 +129,7 @@ export class MagicalEditor {
 
   loadToDom(el: HTMLElement): void {
     el.empty();
-    el.appendChild(this.view.containerEl);
+    el.appendChild(this.leafToMount.containerEl);
   }
 
   /** Focuses the editor. */
@@ -152,6 +155,7 @@ export class MagicalEditor {
       this.prevActiveEditor = null;
     }
 
+    this.view.containerEl.detach();
     this._impl.destroy();
   }
 
@@ -173,26 +177,38 @@ export class MagicalEditor {
     handler(); // Apply immediately before first focusin
   }
 
+
   /**
    * Creates a fake leaf that renders into a detached `div` instead of the real leaf's container.
    * Prevents crashes by not modifying the original leaf.
    */
-  private async _createFakeLeaf(leaf: WorkspaceLeaf): Promise<WorkspaceLeaf> {
-    const fakeLeaf = this.app.workspace.createLeafInParent(this.app.workspace.rootSplit, 0);
-    fakeLeaf.containerEl.setCssStyles({ display: "none" });
-
-    // fakeLeaf.setViewState = async (state: ViewState, result: ViewStateResult) => {
-    //     if (state.type === "markdown") {
-    //       state.type = leaf.view.getViewType() || "markdown";
-    //     }
-    //     leaf.setViewState(state, result || { history: false });
-    //   }
-    // if (this.options.file) {
-    //   await fakeLeaf.openFile(this.options.file);
-    // }
-    return fakeLeaf;
+  private _createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
+    const self = this;
+    return {
+      ...leaf,
+      containerEl: createEl("div"),
+      setViewState: async (state: ViewState, result: ViewStateResult) => {
+        // if (state.type === "markdown") {
+        //   state.type = leaf.view.getViewType() || "markdown";
+        // }
+        leaf.setViewState(state, result || { history: false });
+      },
+      __FAKE_LEAF__: true,
+      get view() {
+        return self.view;
+      },
+    } as unknown as WorkspaceLeaf;
   }
 
+  
+  private _applyStyles(): void {
+    (this.leafToMount.view as MarkdownView).headerEl.setCssStyles({ visibility: "hidden" });
+
+    this.view.editor.cm.contentDOM.setCssStyles({
+      paddingTop: "var(--editor-padding-top)",
+      paddingBottom: "var(--editor-padding-bottom)",
+    });
+  }
 
   private _registerMousedownHandler(): void {
     this.view.containerEl

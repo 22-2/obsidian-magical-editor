@@ -4,6 +4,7 @@ import "obsidian";
 declare module "obsidian" {
   interface WorkspaceLeaf {
     containerEl: HTMLElement;
+    headerEl: HTMLElement;
   }
   interface MarkdownView {
     headerEl: HTMLElement;

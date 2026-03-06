@@ -1,7 +1,7 @@
 import { App, Editor, MarkdownView, WorkspaceLeaf } from "obsidian";
 import { MagicalEditorOptions } from "../MagicalEditor";
 import { FileEditor } from "./file-editor";
-import { EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
+import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 import { VirtualEditor } from "./virtual-editor";
 
 /**
@@ -39,7 +39,6 @@ export async function createInternalEditor(
     return impl;
   } else {
     // --- Virtual mode ---
-    const { createEmbeddableMarkdownEditor } = await import("./internal/magical-embeddable-editor");
 
     const view = createEmbeddableMarkdownEditor(
       app,
