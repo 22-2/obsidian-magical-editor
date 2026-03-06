@@ -70,25 +70,13 @@ export function createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
   fakeLeaf.__FAKE_LEAF__ = true;
 
   // Shadow the 'view' property to capture the new view instance
-  let _view: any = undefined;
+  let _view: MarkdownView | undefined = undefined;
   Object.defineProperty(fakeLeaf, "view", {
     get: () => _view,
     set: (v) => { _view = v; },
     enumerable: true,
     configurable: true,
   });
-
-  // Detach from the workspace parent tree to avoid side effects
-  fakeLeaf.parent = {
-    selectTab: () => {},
-    children: [fakeLeaf],
-  };
-
-  // Ensure setViewState runs on this instance rather than delegating back to source
-  fakeLeaf.setViewState = async (state: ViewState, result?: ViewStateResult) => {
-    // @ts-ignore
-    return WorkspaceLeaf.prototype.setViewState.call(fakeLeaf, state, result);
-  };
 
   return fakeLeaf as WorkspaceLeaf;
 }
