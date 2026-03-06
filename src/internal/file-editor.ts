@@ -21,36 +21,9 @@ export interface FileEditorOptions {
  * Saves are suppressed so the file is never auto-saved.
  */
 export class FileEditor {
-  private constructor(public readonly view: MarkdownView) {  }
-
-  static async create(
-    app: App,
-    leaf: WorkspaceLeaf,
-    options: FileEditorOptions,
-  ): Promise<FileEditor> {
-    await leaf.openFile(options.file, { state: { mode: "source" } });
-    const view = leaf.view as MarkdownView;
-
-    const instance = new FileEditor(view);
-    instance._suppressSaves();
-    instance._applyStyles();
-
-    if (options.initialContent !== undefined) {
-      view.editor.setValue(options.initialContent);
-    }
-
-    if (options.onChange) {
-      // onChange is wired by MagicalEditor via workspace event (needs EventRef lifecycle)
-      // so we expose it here for MagicalEditor to register.
-    }
-
-    if (options.sourceEditor) {
-      setTimeout(() => {
-        view.editor.setCursor(options.sourceEditor!.getCursor());
-      }, 0);
-    }
-
-    return instance;
+  constructor(public readonly view: MarkdownView) {
+    this._suppressSaves();
+    this._applyStyles();
   }
 
   get editor(): Editor {
@@ -65,6 +38,7 @@ export class FileEditor {
 
   private _applyStyles(): void {
     this.view.headerEl?.setCssStyles?.({ visibility: "hidden" });
+
     this.view.editor.cm.contentDOM.setCssStyles({
       paddingTop: "var(--editor-padding-top)",
       paddingBottom: "var(--editor-padding-bottom)",

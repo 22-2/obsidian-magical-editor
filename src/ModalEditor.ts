@@ -44,6 +44,8 @@ export interface ModalEditorOptions {
 
   /** Placeholder text for the editor. Default: `"Hello, Magical Editor!"` */
   placeholder?: string;
+
+  hostLeaf: WorkspaceLeaf;
 }
 
 
@@ -72,19 +74,17 @@ export interface ModalEditorOptions {
  * ```
  */
 export class ModalEditor extends Modal {
-  private hiddenLeaf: WorkspaceLeaf | null = null;
-
   /** The underlying wrapper. Available after the modal is opened. */
   public editor!: MagicalEditor;
 
-  constructor(app: App, private options: ModalEditorOptions = {}) {
+  constructor(app: App, private options: ModalEditorOptions) {
     super(app);
   }
 
   async onOpen() {
     this.applyStyles();
     await this.initEditor();
-    setTimeout(() => { this.editor.focus(); }, 0);
+    setTimeout(() => this.editor.focus());
   }
 
   /**
@@ -154,25 +154,24 @@ export class ModalEditor extends Modal {
   }
 
   /**
-   * hiddenLeaf と MagicalEditor を生成し、エディタ DOM を contentEl に挿入する。
+   * MagicalEditor を生成し、エディタ DOM を contentEl に挿入する。
    */
   private async initEditor(): Promise<void> {
     const { contentEl } = this;
 
-    this.hiddenLeaf = this.app.workspace.createLeafInParent(
-      this.app.workspace.rootSplit,
-      0
-    );
-    this.hiddenLeaf.containerEl.setCssStyles({ display: "none" });
-
-    this.editor = await MagicalEditor.create(this.app, this.hiddenLeaf, {
+    this.editor = await MagicalEditor.create(this.app, this.options.hostLeaf!, {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,
-      sourceEditor: this.options.sourceEditor,
       placeholder: this.options.placeholder || "Hello, Magical Editor!",
     });
 
+    // view.containerEl (.workspace-leaf) must also fill its parent.
+    this.editor.view.containerEl.setCssStyles({
+      height: "100%",
+      width: "100%",
+    });
+    
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
     // editorArea must fill the remaining height so .cm-scroller gets a bounded height.
     // flex:1 + min-height:0 is the standard flexbox pattern for overflow in a flex child.
@@ -183,13 +182,7 @@ export class ModalEditor extends Modal {
       position: "relative",
     });
 
-    const view = this.editor.view;
-    // view.containerEl (.workspace-leaf) must also fill its parent.
-    (view.containerEl as HTMLElement).setCssStyles({
-      height: "100%",
-      width: "100%",
-    });
-    editorArea.appendChild(view.containerEl);
+    this.editor.loadToDom(editorArea);
   }
 
 
@@ -210,10 +203,5 @@ export class ModalEditor extends Modal {
 
     this.contentEl.empty();
     this.editor?.destroy();
-
-    if (this.hiddenLeaf) {
-      this.hiddenLeaf.detach();
-      this.hiddenLeaf = null;
-    }
   }
 }

@@ -23,42 +23,8 @@ export interface VirtualEditorOptions {
  * Creates an in-memory `EmbeddableMarkdownEditor` with no physical file.
  */
 export class VirtualEditor {
-  private constructor(public readonly view: EmbeddableMarkdownEditor) { }
-
-  static create(
-    app: App,
-    leaf: WorkspaceLeaf,
-    options: VirtualEditorOptions,
-    getContent: () => string,
-  ): VirtualEditor {
-    const view = createEmbeddableMarkdownEditor(
-      app,
-      leaf.containerEl,
-      {
-        value: options.initialContent ?? "",
-        placeholder: options.placeholder,
-        onChange: () => {
-          options.onChange?.(getContent());
-        },
-        onBlur: () => {
-          // Reserved for future active-editor sync if needed
-        },
-        parentScope: options.parentScope,
-      },
-      leaf,
-    );
-
-    const instance = new VirtualEditor(view);
-
-    instance._applyStyles();
-
-    if (options.sourceEditor) {
-      setTimeout(() => {
-        view.editor.setCursor(options.sourceEditor!.getCursor());
-      }, 0);
-    }
-
-    return instance;
+  constructor(public readonly view: EmbeddableMarkdownEditor) {
+    this._applyStyles();
   }
 
   get editor(): Editor {
@@ -72,10 +38,12 @@ export class VirtualEditor {
       display: "flex",
       flexDirection: "column",
     });
-    this.view.activeCM.contentDOM.setCssStyles({
-      paddingTop: "var(--editor-padding-top)",
-      paddingBottom: "var(--editor-padding-bottom)",
-    });
+    if (this.view.activeCM?.contentDOM) {
+      this.view.activeCM.contentDOM.setCssStyles({
+        paddingTop: "var(--editor-padding-top)",
+        paddingBottom: "var(--editor-padding-bottom)",
+      });
+    }
   }
 
   destroy(): void {

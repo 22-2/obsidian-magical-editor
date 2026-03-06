@@ -11,7 +11,7 @@ import {
     WorkspaceLeaf
 } from "obsidian";
 import { FileEditor } from "./internal/file-editor";
-import { EmbeddableMarkdownEditor } from "./internal/markdown-editor";
+import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/markdown-editor";
 import { VirtualEditor } from "./internal/virtual-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
@@ -31,9 +31,6 @@ export interface MagicalEditorOptions {
 
   /** Called on every content change. */
   onChange?: (content: string) => void;
-
-  /** If provided, copies cursor position from this editor on init. */
-  sourceEditor?: Editor;
 
   /** Custom placeholder for the editor (virtual mode only). */
   placeholder?: string;
@@ -56,16 +53,16 @@ export class MagicalEditor {
   private _impl!: FileEditor | VirtualEditor;
   private isVirtual = false;
   private onChangeRef: EventRef | null = null;
-  private leaf: WorkspaceLeaf;
+  private fakeLeaf: WorkspaceLeaf | null = null;
   private focusinHandler: (() => void) | null = null;
   private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
   private uninstaller: (() => void) | null = null;
 
   private constructor(
     private readonly app: App,
-    private readonly hostLeaf: WorkspaceLeaf,
+    private readonly sourceLeaf: WorkspaceLeaf,
+    private readonly options: MagicalEditorOptions,
   ) {
-    this.leaf = this._createFakeLeaf(hostLeaf);
   }
 
   /** Creates and initializes a `MagicalEditor`. Must be awaited. */
@@ -74,52 +71,73 @@ export class MagicalEditor {
     leaf: WorkspaceLeaf,
     options: MagicalEditorOptions = {},
   ): Promise<MagicalEditor> {
-    const me = new MagicalEditor(app, leaf);
-    await me._init(options);
+    const me = new MagicalEditor(app, leaf, options);
+    if (leaf.view.getViewType() !== "markdown") {
+      console.warn("not markdown view provided");
+    }
+    await me._init();
     return me;
   }
 
-  private async _init(options: MagicalEditorOptions): Promise<void> {
-    if (options.file) {
+  private async _init(): Promise<void> {
+    this.fakeLeaf = await this._createFakeLeaf(this.sourceLeaf);
+    const sourceView = this.sourceLeaf.view as MarkdownView;
+    const sourceEditor = sourceView.editor;
+
+    if (this.options.file) {
       // --- File mode ---
-      const impl = await FileEditor.create(this.app, this.leaf, {
-        file: options.file,
-        initialContent: options.initialContent,
-        sourceEditor: options.sourceEditor,
-      });
-      this._impl = impl;
-      this.view = impl.view;
+      await this.fakeLeaf.openFile(this.options.file, { state: { mode: "source" } });
+
+      this._impl = new FileEditor(this.fakeLeaf.view as MarkdownView);
+      this.view = this._impl.view;
       this.isVirtual = false;
 
-      if (options.onChange) {
+      if (this.options.initialContent !== undefined) {
+        this.editor.setValue(this.options.initialContent);
+      }
+
+      if (this.fakeLeaf.view.getViewType() === "markdown") {
+        setTimeout(() => {
+          this.editor.setCursor(sourceEditor.getCursor());
+        }, 0);
+      }
+
+      if (this.options.onChange) {
         this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
           if (editor === (this.view as MarkdownView).editor) {
-            options.onChange!(editor.getValue());
+            this.options.onChange!(editor.getValue());
           }
         });
       }
-
-      // Populate `hostLeaf.view.editor` so Obsidian internals can find it.
-      if (this.hostLeaf.view) {
-        (this.hostLeaf.view as any).editor = this.editor;
-      }
     } else {
       // --- Virtual mode ---
-      const impl = VirtualEditor.create(
+      const view = createEmbeddableMarkdownEditor(
         this.app,
-        this.leaf,
+        this.fakeLeaf.containerEl,
         {
-          initialContent: options.initialContent,
-          onChange: options.onChange,
-          sourceEditor: options.sourceEditor,
-          placeholder: options.placeholder,
-          parentScope: options.parentScope || (this.hostLeaf.view as any)?.scope || this.app.scope,
+          value: this.options.initialContent ?? "",
+          placeholder: this.options.placeholder,
+          onChange: () => {
+            this.options.onChange?.(this.getContent());
+          },
+          onBlur: () => {
+            // Reserved for future active-editor sync if needed
+          },
+          parentScope: this.options.parentScope || (this.sourceLeaf.view as any)?.scope || this.app.scope,
         },
-        () => this.getContent(),
+        this.fakeLeaf,
       );
+
+      const impl = new VirtualEditor(view);
       this._impl = impl;
       this.view = impl.view;
       this.isVirtual = true;
+
+      if (this.fakeLeaf.view.getViewType() === "markdown") {
+        setTimeout(() => {
+          this.editor.setCursor(sourceEditor.getCursor());
+        }, 0);
+      }
     }
 
     this._enableActiveEditorSync();
@@ -145,6 +163,11 @@ export class MagicalEditor {
   /** Replaces the editor content. */
   setContent(content: string): void {
     this.editor.setValue(content);
+  }
+
+  loadToDom(el: HTMLElement): void {
+    el.empty();
+    el.appendChild(this.view.containerEl);
   }
 
   /** Focuses the editor. */
@@ -195,22 +218,20 @@ export class MagicalEditor {
    * Creates a fake leaf that renders into a detached `div` instead of the real leaf's container.
    * Prevents crashes by not modifying the original leaf.
    */
-  private _createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
-    const self = this;
-    return {
-      ...leaf,
-      containerEl: createEl("div"),
-      setViewState: async (state: ViewState, result: ViewStateResult) => {
-        if (state.type === "markdown") {
-          state.type = leaf.view.getViewType() || "markdown";
-        }
-        leaf.setViewState(state, result || { history: false });
-      },
-      __FAKE_LEAF__: true,
-      get view() {
-        return self.view;
-      },
-    } as unknown as WorkspaceLeaf;
+  private async _createFakeLeaf(leaf: WorkspaceLeaf): Promise<WorkspaceLeaf> {
+    const fakeLeaf = this.app.workspace.createLeafInParent(this.app.workspace.rootSplit, 0);
+    fakeLeaf.containerEl.setCssStyles({ display: "none" });
+
+    // fakeLeaf.setViewState = async (state: ViewState, result: ViewStateResult) => {
+    //     if (state.type === "markdown") {
+    //       state.type = leaf.view.getViewType() || "markdown";
+    //     }
+    //     leaf.setViewState(state, result || { history: false });
+    //   }
+    // if (this.options.file) {
+    //   await fakeLeaf.openFile(this.options.file);
+    // }
+    return fakeLeaf;
   }
 
 
