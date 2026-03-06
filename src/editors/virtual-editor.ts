@@ -1,8 +1,9 @@
 import {
     Editor,
-    Scope
+    Scope,
+    WorkspaceLeaf
 } from "obsidian";
-import { InternalEditor } from "./index";
+import { createFakeLeaf, InternalEditor } from "./index";
 import {
     EmbeddableMarkdownEditor
 } from "./internal/magical-embeddable-editor";
@@ -24,6 +25,11 @@ export class VirtualEditor implements InternalEditor {
   constructor(public readonly view: EmbeddableMarkdownEditor) {
     this._applyStyles();
   }
+
+  static createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
+    return createFakeLeaf(leaf);
+  }
+
 
   get editor(): Editor {
     return this.view.editor;

@@ -11,6 +11,8 @@ import {
     WorkspaceLeaf
 } from "obsidian";
 import { createInternalEditor, InternalEditor } from "./editors";
+import { FileEditor } from "./editors/file-editor";
+import { VirtualEditor } from "./editors/virtual-editor";
 import { EmbeddableMarkdownEditor } from "./editors/internal/magical-embeddable-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
@@ -70,23 +72,19 @@ export class MagicalEditor {
     options: MagicalEditorOptions = {},
   ): Promise<MagicalEditor> {
     const me = new MagicalEditor(app, leaf, options);
-    if (leaf.view.getViewType() !== "markdown") {
-      console.warn("not markdown view provided");
-    }
     await me._init();
     return me;
   }
 
   private async _init(): Promise<void> {
-    this.leafToMount = this._createFakeLeaf(this.sourceLeaf);
-
-    this._impl = await createInternalEditor(
+    const { impl, leafToMount } = await createInternalEditor(
       this.app,
-      this.leafToMount,
       this.sourceLeaf,
       this.options,
       () => this.getContent(),
     );
+    this._impl = impl;
+    this.leafToMount = leafToMount;
     this.view = this._impl.view;
 
     if (this.options.file && this.options.onChange) {
@@ -177,33 +175,7 @@ export class MagicalEditor {
     handler(); // Apply immediately before first focusin
   }
 
-
-  /**
-   * Creates a fake leaf that renders into a detached `div` instead of the real leaf's container.
-   * Prevents crashes by not modifying the original leaf.
-   */
-  private _createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
-    const self = this;
-    return {
-      ...leaf,
-      containerEl: createEl("div"),
-      setViewState: async (state: ViewState, result: ViewStateResult) => {
-        // if (state.type === "markdown") {
-        //   state.type = leaf.view.getViewType() || "markdown";
-        // }
-        leaf.setViewState(state, result || { history: false });
-      },
-      __FAKE_LEAF__: true,
-      get view() {
-        return self.view;
-      },
-    } as unknown as WorkspaceLeaf;
-  }
-
-  
   private _applyStyles(): void {
-    (this.leafToMount.view as MarkdownView).headerEl.setCssStyles({ visibility: "hidden" });
-
     this.view.editor.cm.contentDOM.setCssStyles({
       paddingTop: "var(--editor-padding-top)",
       paddingBottom: "var(--editor-padding-bottom)",

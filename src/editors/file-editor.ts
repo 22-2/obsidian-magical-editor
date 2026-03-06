@@ -1,9 +1,10 @@
 import {
     Editor,
     MarkdownView,
-    TFile
+    TFile,
+    WorkspaceLeaf
 } from "obsidian";
-import { InternalEditor } from "./index";
+import { createFakeLeaf, InternalEditor } from "./index";
 
 export interface FileEditorOptions {
   file: TFile;
@@ -22,7 +23,13 @@ export interface FileEditorOptions {
 export class FileEditor implements InternalEditor {
   constructor(public readonly view: MarkdownView) {
     this._suppressSaves();
+    (this.view as MarkdownView).headerEl.setCssStyles({ visibility: "hidden" });
   }
+
+  static createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
+    return createFakeLeaf(leaf);
+  }
+
 
   get editor(): Editor {
     return this.view.editor;
