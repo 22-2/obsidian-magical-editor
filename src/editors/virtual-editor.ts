@@ -1,13 +1,11 @@
 import {
-    App,
     Editor,
-    Scope,
-    WorkspaceLeaf
+    Scope
 } from "obsidian";
+import { InternalEditor } from "./index";
 import {
-    createEmbeddableMarkdownEditor,
     EmbeddableMarkdownEditor
-} from "./markdown-editor";
+} from "./internal/magical-embeddable-editor";
 
 export interface VirtualEditorOptions {
   initialContent?: string;
@@ -22,7 +20,7 @@ export interface VirtualEditorOptions {
  *
  * Creates an in-memory `EmbeddableMarkdownEditor` with no physical file.
  */
-export class VirtualEditor {
+export class VirtualEditor implements InternalEditor {
   constructor(public readonly view: EmbeddableMarkdownEditor) {
     this._applyStyles();
   }

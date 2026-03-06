@@ -5,14 +5,11 @@ import {
     MarkdownView,
     Scope,
     TFile,
-    ViewState,
-    ViewStateResult,
     Workspace,
     WorkspaceLeaf
 } from "obsidian";
-import { FileEditor } from "./internal/file-editor";
-import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/markdown-editor";
-import { VirtualEditor } from "./internal/virtual-editor";
+import { createInternalEditor, InternalEditor } from "./editors";
+import { EmbeddableMarkdownEditor } from "./editors/internal/magical-embeddable-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
   _activeEditor: MarkdownView | EmbeddableMarkdownEditor | null;
@@ -50,8 +47,7 @@ export interface MagicalEditorOptions {
 export class MagicalEditor {
   public view!: MarkdownView | EmbeddableMarkdownEditor;
 
-  private _impl!: FileEditor | VirtualEditor;
-  private isVirtual = false;
+  private _impl!: InternalEditor;
   private onChangeRef: EventRef | null = null;
   private fakeLeaf: WorkspaceLeaf | null = null;
   private focusinHandler: (() => void) | null = null;
@@ -81,63 +77,22 @@ export class MagicalEditor {
 
   private async _init(): Promise<void> {
     this.fakeLeaf = await this._createFakeLeaf(this.sourceLeaf);
-    const sourceView = this.sourceLeaf.view as MarkdownView;
-    const sourceEditor = sourceView.editor;
 
-    if (this.options.file) {
-      // --- File mode ---
-      await this.fakeLeaf.openFile(this.options.file, { state: { mode: "source" } });
+    this._impl = await createInternalEditor(
+      this.app,
+      this.fakeLeaf,
+      this.sourceLeaf,
+      this.options,
+      () => this.getContent(),
+    );
+    this.view = this._impl.view;
 
-      this._impl = new FileEditor(this.fakeLeaf.view as MarkdownView);
-      this.view = this._impl.view;
-      this.isVirtual = false;
-
-      if (this.options.initialContent !== undefined) {
-        this.editor.setValue(this.options.initialContent);
-      }
-
-      if (this.fakeLeaf.view.getViewType() === "markdown") {
-        setTimeout(() => {
-          this.editor.setCursor(sourceEditor.getCursor());
-        }, 0);
-      }
-
-      if (this.options.onChange) {
-        this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
-          if (editor === (this.view as MarkdownView).editor) {
-            this.options.onChange!(editor.getValue());
-          }
-        });
-      }
-    } else {
-      // --- Virtual mode ---
-      const view = createEmbeddableMarkdownEditor(
-        this.app,
-        this.fakeLeaf.containerEl,
-        {
-          value: this.options.initialContent ?? "",
-          placeholder: this.options.placeholder,
-          onChange: () => {
-            this.options.onChange?.(this.getContent());
-          },
-          onBlur: () => {
-            // Reserved for future active-editor sync if needed
-          },
-          parentScope: this.options.parentScope || (this.sourceLeaf.view as any)?.scope || this.app.scope,
-        },
-        this.fakeLeaf,
-      );
-
-      const impl = new VirtualEditor(view);
-      this._impl = impl;
-      this.view = impl.view;
-      this.isVirtual = true;
-
-      if (this.fakeLeaf.view.getViewType() === "markdown") {
-        setTimeout(() => {
-          this.editor.setCursor(sourceEditor.getCursor());
-        }, 0);
-      }
+    if (this.options.file && this.options.onChange) {
+      this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
+        if (editor === (this.view as MarkdownView).editor) {
+          this.options.onChange!(editor.getValue());
+        }
+      });
     }
 
     this._enableActiveEditorSync();

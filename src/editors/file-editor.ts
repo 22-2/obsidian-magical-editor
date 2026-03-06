@@ -1,10 +1,9 @@
 import {
-    App,
     Editor,
     MarkdownView,
-    TFile,
-    WorkspaceLeaf
+    TFile
 } from "obsidian";
+import { InternalEditor } from "./index";
 
 export interface FileEditorOptions {
   file: TFile;
@@ -20,7 +19,7 @@ export interface FileEditorOptions {
  * CodeBlockProcessors and the full Obsidian rendering pipeline.
  * Saves are suppressed so the file is never auto-saved.
  */
-export class FileEditor {
+export class FileEditor implements InternalEditor {
   constructor(public readonly view: MarkdownView) {
     this._suppressSaves();
     this._applyStyles();
