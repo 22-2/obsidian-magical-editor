@@ -288,7 +288,7 @@ export class EmbeddableMarkdownEditor {
 						// Add placeholder if configured
 						if (self.options.placeholder) {
 							extensions.push(
-								placeholder(self.options.placeholder)
+								// placeholder(self.options.placeholder)
 							);
 						}
 

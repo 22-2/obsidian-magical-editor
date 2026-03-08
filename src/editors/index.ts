@@ -25,8 +25,7 @@ export async function createInternalEditor(
   if (options.file) {
     // --- File mode ---
     const leafToMount = FileEditor.createFakeLeaf(sourceLeaf);
-    await leafToMount.openFile(options.file, { state: { mode: "source" } });
-
+    await leafToMount.openFile(options.file);
     const impl = new FileEditor(leafToMount.view as MarkdownView);
 
     if (options.initialContent !== undefined) {
@@ -49,7 +48,7 @@ export async function createInternalEditor(
         onBlur: () => {
           // Reserved for future active-editor sync if needed
         },
-        parentScope: options.parentScope || (sourceLeaf.view as any)?.scope || app.scope,
+        parentScope: options.parentScope || (sourceLeaf.view as MarkdownView)?.scope || app.scope,
       },
       leafToMount,
     );
@@ -79,4 +78,10 @@ export function createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
   });
 
   return fakeLeaf as WorkspaceLeaf;
+}
+
+export function createHiddenLeaf(app: App): WorkspaceLeaf {
+  const leaf = app.workspace.getLeaf(true);
+  leaf.containerEl.setCssStyles({display: "none"});
+  return leaf;
 }

@@ -6,6 +6,7 @@ import {
     WorkspaceLeaf
 } from "obsidian";
 import { MagicalEditor } from "./MagicalEditor";
+import { createHiddenLeaf } from "./editors";
 
 export interface ModalEditorOptions {
   /** Initial content of the editor. Default: `""` */
@@ -45,7 +46,7 @@ export interface ModalEditorOptions {
   /** Placeholder text for the editor. Default: `"Hello, Magical Editor!"` */
   placeholder?: string;
 
-  hostLeaf: WorkspaceLeaf;
+  hostLeaf?: WorkspaceLeaf;
 }
 
 
@@ -148,7 +149,7 @@ export class ModalEditor extends Modal {
         zIndex: "99",
       });
     }
-    setTimeout(() => { modalBg?.setCssStyles({ opacity: "1" }); }, 0);
+    setTimeout(() => { modalBg?.setCssStyles({ opacity: "1" }); });
     return modalBg;
   }
 
@@ -158,7 +159,7 @@ export class ModalEditor extends Modal {
   private async initEditor(): Promise<void> {
     const { contentEl } = this;
 
-    this.editor = await MagicalEditor.create(this.app, this.options.hostLeaf!, {
+    this.editor = await MagicalEditor.create(this.app, this.options.hostLeaf || createHiddenLeaf(this.app), {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,
