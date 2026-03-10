@@ -33,7 +33,7 @@ export interface MagicalEditorOptions {
   /** Called on every content change. */
   onChange?: (content: string) => void;
 
-  /** Custom placeholder for the editor (virtual mode only). */
+  /** Custom placeholder for the editor. */
   placeholder?: string;
   parentScope?: Scope;
 }
@@ -57,6 +57,7 @@ export class MagicalEditor {
   private focusinHandler: (() => void) | null = null;
   private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
   private uninstaller: (() => void) | null = null;
+  private placeholderEl: HTMLElement | null = null;
 
   private constructor(
     private readonly app: App,
@@ -98,6 +99,7 @@ export class MagicalEditor {
     this._enableActiveEditorSync();
     this._registerMousedownHandler();
     this._applyStyles();
+    this._initPlaceholder();
     window.setTimeout(() => {
       this.editor.focus();
       if (this.sourceLeaf.view.getViewType() === "markdown") {
@@ -155,6 +157,10 @@ export class MagicalEditor {
 
     this.view.containerEl.detach();
     this._impl.destroy();
+    if (this.placeholderEl) {
+      this.placeholderEl.remove();
+      this.placeholderEl = null;
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -193,5 +199,58 @@ export class MagicalEditor {
           editor.focus();
         });
       });
+  }
+
+  private _initPlaceholder(): void {
+    if (!this.options.placeholder) return;
+
+    // Use absolute positioning within the containerEl
+    this.view.containerEl.setCssStyles({ position: "relative" });
+
+    this.placeholderEl = this.view.containerEl.createDiv({
+      cls: "magical-editor-placeholder",
+      text: this.options.placeholder,
+    });
+
+    this.placeholderEl.setCssStyles({
+      position: "absolute",
+      top: "var(--size-2-1)",
+      left: "var(--size-2-1)",
+      pointerEvents: "none",
+      color: "var(--text-muted)",
+      opacity: "0.5",
+      userSelect: "none",
+      fontSize: "var(--font-text-size)",
+      zIndex: "10",
+      whiteSpace: "pre-wrap",
+      width: "calc(100% - var(--size-4-10))",
+    });
+
+    this._updatePlaceholderVisibility();
+
+    // Monitor changes
+    // 1. Higher-level workspace events for file mode and general changes
+    this.app.workspace.on("editor-change", () => {
+      this._updatePlaceholderVisibility();
+    });
+
+    // 2. Direct DOM input events for fast/virtual updates without relying on CM extensions
+    // this.editor.cm.contentDOM.addEventListener("input", () => {
+    //   this._updatePlaceholderVisibility();
+    // });
+
+    // 3. Fallback for programmatic changes
+    // const self = this;
+    // const originalSetValue = this.editor.setValue.bind(this.editor);
+    // this.editor.setValue = function(content: string) {
+    //   originalSetValue(content);
+    //   self._updatePlaceholderVisibility();
+    // };
+  }
+
+  private _updatePlaceholderVisibility(): void {
+    if (!this.placeholderEl) return;
+    const content = this.getContent();
+    this.placeholderEl.style.display = content.trim() === "" ? "block" : "none";
   }
 }
