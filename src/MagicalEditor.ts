@@ -35,6 +35,13 @@ export interface MagicalEditorOptions {
 
   /** Custom placeholder for the editor. */
   placeholder?: string;
+
+  /** Whether the editor is in read-only mode. */
+  isReadOnly?: boolean;
+
+  /** Placeholder to show when in read-only mode. */
+  readonlyPlaceholder?: string;
+
   parentScope?: Scope;
 }
 
@@ -100,6 +107,7 @@ export class MagicalEditor {
     this._registerMousedownHandler();
     this._applyStyles();
     this._initPlaceholder();
+    this._applyReadOnlyState();
     window.setTimeout(() => {
       this.editor.focus();
       if (this.sourceLeaf.view.getViewType() === "markdown") {
@@ -125,6 +133,23 @@ export class MagicalEditor {
   /** Replaces the editor content. */
   setContent(content: string): void {
     this.editor.setValue(content);
+    this._updatePlaceholderVisibility();
+  }
+
+  /** Updates the read-only state. */
+  setReadOnly(isReadOnly: boolean): void {
+    this.options.isReadOnly = isReadOnly;
+    this._applyReadOnlyState();
+    this._updatePlaceholderText();
+  }
+
+  /** Updates the placeholder text. */
+  setPlaceholder(placeholder: string, readonlyPlaceholder?: string): void {
+    this.options.placeholder = placeholder;
+    if (readonlyPlaceholder !== undefined) {
+      this.options.readonlyPlaceholder = readonlyPlaceholder;
+    }
+    this._updatePlaceholderText();
   }
 
   loadToDom(el: HTMLElement): void {
@@ -202,14 +227,43 @@ export class MagicalEditor {
   }
 
   private _initPlaceholder(): void {
-    if (!this.options.placeholder) return;
+    this._updatePlaceholderText();
+    this._updatePlaceholderVisibility();
+
+    // Monitor changes
+    // 1. Higher-level workspace events for file mode and general changes
+    this.app.workspace.on("editor-change", () => {
+      this._updatePlaceholderVisibility();
+    });
+
+    // // 2. Direct DOM input events for fast/virtual updates without relying on CM extensions
+    // this.editor.cm.contentDOM.addEventListener("input", () => {
+    //   this._updatePlaceholderVisibility();
+    // });
+
+    // // 3. Fallback for programmatic changes
+    // const self = this;
+    // const originalSetValue = this.editor.setValue.bind(this.editor);
+    // this.editor.setValue = function(content: string) {
+    //   originalSetValue(content);
+    //   self._updatePlaceholderVisibility();
+    // };
+  }
+
+  private _updatePlaceholderVisibility(): void {
+    if (!this.placeholderEl) return;
+    const content = this.getContent();
+    this.placeholderEl.style.display = content.trim() === "" ? "block" : "none";
+  }
+
+  private _ensurePlaceholder(): void {
+    if (this.placeholderEl) return;
 
     // Use absolute positioning within the containerEl
     this.view.containerEl.setCssStyles({ position: "relative" });
 
     this.placeholderEl = this.view.containerEl.createDiv({
       cls: "magical-editor-placeholder",
-      text: this.options.placeholder,
     });
 
     this.placeholderEl.setCssStyles({
@@ -225,32 +279,33 @@ export class MagicalEditor {
       whiteSpace: "pre-wrap",
       width: "calc(100% - var(--size-4-10))",
     });
-
-    this._updatePlaceholderVisibility();
-
-    // Monitor changes
-    // 1. Higher-level workspace events for file mode and general changes
-    this.app.workspace.on("editor-change", () => {
-      this._updatePlaceholderVisibility();
-    });
-
-    // 2. Direct DOM input events for fast/virtual updates without relying on CM extensions
-    // this.editor.cm.contentDOM.addEventListener("input", () => {
-    //   this._updatePlaceholderVisibility();
-    // });
-
-    // 3. Fallback for programmatic changes
-    // const self = this;
-    // const originalSetValue = this.editor.setValue.bind(this.editor);
-    // this.editor.setValue = function(content: string) {
-    //   originalSetValue(content);
-    //   self._updatePlaceholderVisibility();
-    // };
   }
 
-  private _updatePlaceholderVisibility(): void {
-    if (!this.placeholderEl) return;
-    const content = this.getContent();
-    this.placeholderEl.style.display = content.trim() === "" ? "block" : "none";
+  private _updatePlaceholderText(): void {
+    const placeholderText = this.options.isReadOnly
+      ? (this.options.readonlyPlaceholder || this.options.placeholder)
+      : this.options.placeholder;
+
+    if (!placeholderText) {
+      if (this.placeholderEl) {
+        this.placeholderEl.setText("");
+        this._updatePlaceholderVisibility();
+      }
+      return;
+    }
+
+    this._ensurePlaceholder();
+    this.placeholderEl!.setText(placeholderText);
+    this._updatePlaceholderVisibility();
+  }
+
+  private _applyReadOnlyState(): void {
+    if (this.options.isReadOnly) {
+      this.editor.cm.contentDOM.contentEditable = "false";
+      this.view.containerEl.addClass("is-read-only");
+    } else {
+      this.editor.cm.contentDOM.contentEditable = "true";
+      this.view.containerEl.removeClass("is-read-only");
+    }
   }
 }
