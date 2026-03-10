@@ -253,7 +253,7 @@ export class MagicalEditor {
   private _updatePlaceholderVisibility(): void {
     if (!this.placeholderEl) return;
     const content = this.getContent();
-    this.placeholderEl.style.display = content.trim() === "" ? "block" : "none";
+    this.placeholderEl.setCssStyles({ display: !content ? "block" : "none" });
   }
 
   private _ensurePlaceholder(): void {
