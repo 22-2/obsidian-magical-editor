@@ -163,6 +163,7 @@ export class ModalEditor extends Modal {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,
+      onEscape: () => this.close(),
       placeholder: this.options.placeholder || "Hello, Magical Editor!",
     });
 

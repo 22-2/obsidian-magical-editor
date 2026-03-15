@@ -165,6 +165,7 @@ export class EmbeddableMarkdownEditor {
 	scope: Scope;
 	editMode: MarkdownEditorInstance;
 	mockView: MockView;
+	app: App;
 
 	// Expose commonly accessed properties
 	get editorEl(): HTMLElement {
@@ -178,9 +179,6 @@ export class EmbeddableMarkdownEditor {
 	}
 	get editor(): Editor {
 		return this.editMode.editor;
-	}
-	get app(): App {
-		return this.editMode.app;
 	}
 	get owner(): MockView {
 		return this.editMode.owner;
@@ -225,6 +223,7 @@ export class EmbeddableMarkdownEditor {
 		options: Partial<MarkdownEditorProps>,
 		leaf?: WorkspaceLeaf
 	) {
+		this.app = app;
 		// Store user options first
 		this.options = { ...defaultProperties, ...options };
 		this.initial_value = this.options.value!;
@@ -233,6 +232,21 @@ export class EmbeddableMarkdownEditor {
 		// Prevent Mod+Enter default behavior and trigger onSubmit
 		this.scope.register(["Mod"], "Enter", () => {
 			this.options.onEnter(this, true, false);
+			return true;
+		});
+
+		// @ts-expect-error
+		this.app.scope.keys = this.app.scope.keys.filter((binding) => binding.key !== "Escape");
+		; // Remove Escape handler added by Obsidian
+		this.scope.register([], "Escape", () => {
+			// Clear selection
+			this.editor.cm.dispatch({
+				selection: EditorSelection.single(this.activeCM.state.selection.main.head),
+			});
+
+			if (this.options.onEscape) {
+				this.options.onEscape(this);
+			}
 			return true;
 		});
 

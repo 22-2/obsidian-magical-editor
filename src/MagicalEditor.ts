@@ -33,6 +33,9 @@ export interface MagicalEditorOptions {
   /** Called on every content change. */
   onChange?: (content: string) => void;
 
+  /** Called when Escape is pressed. */
+  onEscape?: () => void;
+
   /** Custom placeholder for the editor. */
   placeholder?: string;
 
