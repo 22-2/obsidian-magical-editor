@@ -1,4 +1,5 @@
 import {
+    App,
     Editor,
     Scope,
     WorkspaceLeaf
@@ -26,8 +27,8 @@ export class VirtualEditor implements InternalEditor {
     this._applyStyles();
   }
 
-  static createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
-    return createFakeLeaf(leaf);
+  static createFakeLeaf(app: App): WorkspaceLeaf {
+    return createFakeLeaf(app);
   }
 
 

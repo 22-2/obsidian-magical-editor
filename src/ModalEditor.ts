@@ -159,8 +159,7 @@ export class ModalEditor extends Modal {
   private async initEditor(): Promise<void> {
     const { contentEl } = this;
 
-    const fakeLeaf = Object.create(this.app.workspace.getMostRecentLeaf());
-    this.editor = await MagicalEditor.create(this.app, this.options.hostLeaf || createFakeLeaf(fakeLeaf), {
+    this.editor = await MagicalEditor.create(this.app, this.options.hostLeaf || createFakeLeaf(this.app), {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,

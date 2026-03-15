@@ -24,7 +24,7 @@ export async function createInternalEditor(
 ): Promise<{ impl: InternalEditor; leafToMount: WorkspaceLeaf }> {
   if (options.file) {
     // --- File mode ---
-    const leafToMount = FileEditor.createFakeLeaf(sourceLeaf);
+    const leafToMount = FileEditor.createFakeLeaf(app);
     await leafToMount.openFile(options.file);
     const impl = new FileEditor(leafToMount.view as MarkdownView);
 
@@ -35,7 +35,7 @@ export async function createInternalEditor(
     return { impl, leafToMount };
   } else {
     // --- Virtual mode ---
-    const leafToMount = VirtualEditor.createFakeLeaf(sourceLeaf);
+    const leafToMount = VirtualEditor.createFakeLeaf(app);
     const view = createEmbeddableMarkdownEditor(
       app,
       leafToMount.containerEl,
@@ -66,8 +66,8 @@ export async function createInternalEditor(
  * isolated from the main workspace tree. Useful for embedding editors
  * in modals or separate DOM elements.
  */
-export function createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
-  const fakeLeaf = Object.create(leaf);
+export function createFakeLeaf(app: App): WorkspaceLeaf {
+  const fakeLeaf = Object.create(app.workspace.getMostRecentLeaf());
   fakeLeaf.containerEl = createDiv();
   fakeLeaf.__FAKE_LEAF__ = true;
 

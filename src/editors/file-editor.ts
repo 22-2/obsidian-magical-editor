@@ -1,4 +1,5 @@
 import {
+    App,
     Editor,
     MarkdownView,
     TFile,
@@ -26,8 +27,8 @@ export class FileEditor implements InternalEditor {
     (this.view as MarkdownView).headerEl.setCssStyles({ visibility: "hidden" });
   }
 
-  static createFakeLeaf(leaf: WorkspaceLeaf): WorkspaceLeaf {
-    return createFakeLeaf(leaf);
+  static createFakeLeaf(app: App): WorkspaceLeaf {
+    return createFakeLeaf(app);
   }
 
 
