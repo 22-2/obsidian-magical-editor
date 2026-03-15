@@ -6,7 +6,7 @@ import {
     WorkspaceLeaf
 } from "obsidian";
 import { MagicalEditor } from "./MagicalEditor";
-import { createHiddenLeaf } from "./editors";
+import { createFakeLeaf, createHiddenLeaf } from "./editors";
 
 export interface ModalEditorOptions {
   /** Initial content of the editor. Default: `""` */
@@ -159,7 +159,8 @@ export class ModalEditor extends Modal {
   private async initEditor(): Promise<void> {
     const { contentEl } = this;
 
-    this.editor = await MagicalEditor.create(this.app, this.options.hostLeaf || createHiddenLeaf(this.app), {
+    const fakeLeaf = Object.create(this.app.workspace.getMostRecentLeaf());
+    this.editor = await MagicalEditor.create(this.app, this.options.hostLeaf || createFakeLeaf(fakeLeaf), {
       file: this.options.file,
       initialContent: this.options.initialContent,
       onChange: this.options.onChange,

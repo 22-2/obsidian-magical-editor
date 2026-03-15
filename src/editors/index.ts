@@ -45,8 +45,11 @@ export async function createInternalEditor(
         onChange: () => {
           options.onChange?.(getContent());
         },
-        onBlur: () => {
-          // Reserved for future active-editor sync if needed
+        // onBlur: () => {
+        //   // Reserved for future active-editor sync if needed
+        // },
+        onEscape: () => {
+          options.onEscape?.();
         },
         parentScope: options.parentScope || (sourceLeaf.view as MarkdownView)?.scope || app.scope,
       },

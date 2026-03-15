@@ -113,7 +113,7 @@ export class MagicalEditor {
     this._applyReadOnlyState();
     window.setTimeout(() => {
       this.editor.focus();
-      if (this.sourceLeaf.view.getViewType() === "markdown") {
+      if (this.sourceLeaf?.view?.getViewType?.() === "markdown") {
         this.editor.setCursor((this.sourceLeaf.view as MarkdownView).editor.getCursor());
       }
     });
