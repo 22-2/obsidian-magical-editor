@@ -255,7 +255,13 @@ export class EmbeddableMarkdownEditor {
 
 		// Create a robust mock view (owner)
 		// DO NOT USE FakeTFile, because it will cause the editor to be treated as a real file, which will cause various problems
-		const file = app.vault.getMarkdownFiles()[0];
+		const filePath = app.workspace.getLastOpenFiles()[0] || app.vault.getMarkdownFiles()[0]?.path;
+
+		if (!filePath) {
+			throw new Error("No open file found to associate with the editor. Please open a file and try again.");
+		}
+		
+		const file = app.vault.getFileByPath(filePath);
 
 		const mockView = new Component() as MockView;
 		Object.assign(mockView, {
