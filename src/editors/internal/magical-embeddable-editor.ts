@@ -230,9 +230,9 @@ export class EmbeddableMarkdownEditor {
 		this.scope = new Scope(this.options.parentScope || app.scope);
 
 		// Prevent Mod+Enter default behavior and trigger onSubmit
-		this.scope.register(["Mod"], "Enter", () => {
+		this.scope.register(["Ctrl"], "Enter", () => {
 			this.options.onEnter(this, true, false);
-			return true;
+			return false;
 		});
 
 		// @ts-expect-error

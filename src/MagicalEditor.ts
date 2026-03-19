@@ -34,6 +34,13 @@ export interface MagicalEditorOptions {
   /** Called when Escape is pressed. */
   onEscape?: () => void;
 
+  /** Called when Enter / Mod+Enter is pressed in virtual editor mode. */
+  onEnter?: (
+    editor: EmbeddableMarkdownEditor,
+    mod: boolean,
+    shift: boolean,
+  ) => boolean | void;
+
   /** Custom placeholder for the editor. */
   placeholder?: string;
 
@@ -123,6 +130,10 @@ export class MagicalEditor {
   /** Gets the underlying Obsidian Editor. */
   get editor(): Editor {
     return this._impl.editor;
+  }
+
+  get view(): MarkdownView | EmbeddableMarkdownEditor {
+    return this._impl.view;
   }
 
   /** Returns the current editor content. */

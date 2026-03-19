@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, ViewState, ViewStateResult, WorkspaceLeaf } from "obsidian";
+import { App, Editor, MarkdownView, WorkspaceLeaf } from "obsidian";
 import { MagicalEditorOptions } from "../MagicalEditor";
 import { FileEditor } from "./file-editor";
 import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
@@ -40,16 +40,13 @@ export async function createInternalEditor(
       app,
       leafToMount.containerEl,
       {
+        ...options,
         value: options.initialContent ?? "",
-        placeholder: options.placeholder,
         onChange: () => {
           options.onChange?.(getContent());
         },
-        // onBlur: () => {
-        //   // Reserved for future active-editor sync if needed
-        // },
-        onEscape: () => {
-          options.onEscape?.();
+        onEnter: (editor, mod, shift) => {
+          return options.onEnter?.(editor, mod, shift) ?? false;
         },
         parentScope: options.parentScope || (sourceLeaf.view as MarkdownView)?.scope || app.scope,
       },
