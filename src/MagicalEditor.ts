@@ -2,17 +2,15 @@ import {
     App,
     Editor,
     EventRef,
+    KeymapEventListener,
     MarkdownView,
+    Modifier,
     Scope,
     TFile,
-    ViewState,
-    ViewStateResult,
     Workspace,
     WorkspaceLeaf
 } from "obsidian";
 import { createInternalEditor, InternalEditor } from "./editors";
-import { FileEditor } from "./editors/file-editor";
-import { VirtualEditor } from "./editors/virtual-editor";
 import { EmbeddableMarkdownEditor } from "./editors/internal/magical-embeddable-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
@@ -59,7 +57,7 @@ export interface MagicalEditorOptions {
  * Saves are suppressed in both modes.
  */
 export class MagicalEditor {
-  public view!: MarkdownView | EmbeddableMarkdownEditor;
+  // public view!: MarkdownView | EmbeddableMarkdownEditor;
 
   private _impl!: InternalEditor;
   private onChangeRef: EventRef | null = null;
@@ -96,11 +94,10 @@ export class MagicalEditor {
     );
     this._impl = impl;
     this.leafToMount = leafToMount;
-    this.view = this._impl.view;
 
     if (this.options.file && this.options.onChange) {
       this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
-        if (editor === (this.view as MarkdownView).editor) {
+        if (editor === (this._impl.view as MarkdownView).editor) {
           this.options.onChange!(editor.getValue());
         }
       });
@@ -160,6 +157,11 @@ export class MagicalEditor {
     el.appendChild(this.leafToMount.containerEl);
   }
 
+  registerHotkey(hotkey: Modifier[] | null, key: string, callback: KeymapEventListener): void {
+    this._impl.view.scope ??= new Scope();
+    this._impl.view.scope.register(hotkey, key, callback);
+  }
+
   /** Focuses the editor. */
   focus(): void {
     this.editor.focus();
@@ -176,14 +178,14 @@ export class MagicalEditor {
     }
 
     if (this.focusinHandler) {
-      this.view.containerEl.removeEventListener("focusin", this.focusinHandler);
+      this._impl.view.containerEl.removeEventListener("focusin", this.focusinHandler);
       this.focusinHandler = null;
       (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor =
         this.prevActiveEditor ?? null;
       this.prevActiveEditor = null;
     }
 
-    this.view.containerEl.detach();
+    this._impl.view.containerEl.detach();
     this._impl.destroy();
     if (this.placeholderEl) {
       this.placeholderEl.remove();
@@ -203,24 +205,24 @@ export class MagicalEditor {
     const ws = this.app.workspace as WorkspaceWithActiveEditor;
     this.prevActiveEditor = ws._activeEditor ?? null;
 
-    const handler = () => { ws._activeEditor = this.view; };
+    const handler = () => { ws._activeEditor = this._impl.view; };
     this.focusinHandler = handler;
-    this.view.containerEl.addEventListener("focusin", handler);
+    this._impl.view.containerEl.addEventListener("focusin", handler);
     handler(); // Apply immediately before first focusin
   }
 
   private _applyStyles(): void {
-    this.view.editor.cm.contentDOM.setCssStyles({
+    this._impl.view.editor.cm.contentDOM.setCssStyles({
       paddingTop: "var(--editor-padding-top)",
       paddingBottom: "var(--editor-padding-bottom)",
     });
   }
 
   private _registerMousedownHandler(): void {
-    this.view.containerEl
+    this._impl.view.containerEl
       .find(".cm-sizer")
       .addEventListener("mousedown", (e: MouseEvent) => {
-        const editor = this.view.editor;
+        const editor = this._impl.view.editor;
         const pos = editor.posAtMouse(e);
         setTimeout(() => {
           if (pos) editor.setSelection(pos, pos);
@@ -263,9 +265,9 @@ export class MagicalEditor {
     if (this.placeholderEl) return;
 
     // Use absolute positioning within the containerEl
-    this.view.containerEl.setCssStyles({ position: "relative" });
+    this._impl.view.containerEl.setCssStyles({ position: "relative" });
 
-    this.placeholderEl = this.view.containerEl.createDiv({
+    this.placeholderEl = this._impl.view.containerEl.createDiv({
       cls: "magical-editor-placeholder",
     });
 
@@ -305,10 +307,10 @@ export class MagicalEditor {
   private _applyReadOnlyState(): void {
     if (this.options.isReadOnly) {
       this.editor.cm.contentDOM.contentEditable = "false";
-      this.view.containerEl.addClass("is-read-only");
+      this._impl.view.containerEl.addClass("is-read-only");
     } else {
       this.editor.cm.contentDOM.contentEditable = "true";
-      this.view.containerEl.removeClass("is-read-only");
+      this._impl.view.containerEl.removeClass("is-read-only");
     }
   }
 }
