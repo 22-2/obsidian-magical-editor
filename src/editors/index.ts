@@ -1,8 +1,22 @@
-import { App, Editor, MarkdownView, WorkspaceLeaf } from "obsidian";
+import { App, Command, Editor, MarkdownView, Workspace, WorkspaceLeaf } from "obsidian";
+import { around } from "monkey-around";
 import { MagicalEditorOptions } from "../MagicalEditor";
 import { FileEditor } from "./file-editor";
 import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 import { VirtualEditor } from "./virtual-editor";
+
+/**
+ * Internal Obsidian types not exposed in the official API
+ */
+interface InternalWorkspace extends Workspace {
+  _activeEditor: MarkdownView | EmbeddableMarkdownEditor | null;
+}
+
+interface InternalApp extends App {
+  commands: {
+    commands: Record<string, Command>;
+  };
+}
 
 /**
  * Common interface for internal editor implementations (File vs Virtual).
@@ -93,39 +107,68 @@ export function createHiddenLeaf(app: App): WorkspaceLeaf {
   return leaf;
 }
 
-let isToggleSourcePatched = false;
+let toggleSourceUninstaller: (() => void) | null = null;
+let patchRefCount = 0;
 
 /**
  * Patches the core "editor:toggle-source" command to manually check for and toggle
  * Virtual editors (EmbeddableMarkdownEditor), which fail the internal `instanceof MarkdownView` type check.
+ *
+ * Uses reference counting so it's only patched once and unpatched when the last editor is destroyed.
  */
-export function patchToggleSourceCommand(app: App) {
-  if (isToggleSourcePatched) return;
-  isToggleSourcePatched = true;
+export function patchToggleSourceCommand(app: App): void {
+  patchRefCount++;
+  if (toggleSourceUninstaller) return;
 
-  const commands = (app as any).commands?.commands;
+  const commands = (app as InternalApp).commands?.commands;
   if (!commands) return;
 
   const toggleSourceCmd = commands["editor:toggle-source"];
   if (!toggleSourceCmd || !toggleSourceCmd.checkCallback) return;
 
-  const originalCheckCallback = toggleSourceCmd.checkCallback;
+  toggleSourceUninstaller = around(toggleSourceCmd, {
+    checkCallback: (originalCheckCallback) => {
+      return function(this: Command, checking: boolean) {
+        if (!originalCheckCallback) return false;
 
-  toggleSourceCmd.checkCallback = (checking: boolean) => {
-    const ws = app.workspace as any;
-    const activeEditor = ws._activeEditor;
+        const ws = app.workspace as InternalWorkspace;
+        const activeEditor = ws._activeEditor;
 
-    // Intercept if the active editor is our Virtual Editor (v-markdown)
-    if (activeEditor && typeof activeEditor.getViewType === "function" && activeEditor.getViewType() === "v-markdown") {
-        if (!checking) {
-            if (activeEditor.editMode && typeof activeEditor.editMode.toggleSource === "function") {
-                activeEditor.editMode.toggleSource();
+        // Intercept if the active editor is our Virtual Editor (v-markdown)
+        if (
+          activeEditor &&
+          typeof activeEditor.getViewType === "function" &&
+          activeEditor.getViewType() === "v-markdown" &&
+          "editMode" in activeEditor
+        ) {
+          const virtualEditor = activeEditor as EmbeddableMarkdownEditor;
+          if (!checking) {
+            if (virtualEditor.editMode && typeof virtualEditor.editMode.toggleSource === "function") {
+              virtualEditor.editMode.toggleSource();
             }
+          }
+          return true;
         }
-        return true;
-    }
 
-    // Default processing for File Editor and standard Obsidian views
-    return originalCheckCallback.call(toggleSourceCmd, checking);
-  };
+        // Default processing for File Editor and standard Obsidian views
+        return originalCheckCallback.call(this, checking);
+      };
+    }
+  });
+}
+
+/**
+ * Unpatches the "editor:toggle-source" command if it was previously patched and refcount reaches zero.
+ */
+export function unpatchToggleSourceCommand(force: boolean = false): void {
+  if (force) {
+    patchRefCount = 0;
+  } else if (patchRefCount > 0) {
+    patchRefCount--;
+  }
+
+  if (patchRefCount === 0 && toggleSourceUninstaller) {
+    toggleSourceUninstaller();
+    toggleSourceUninstaller = null;
+  }
 }

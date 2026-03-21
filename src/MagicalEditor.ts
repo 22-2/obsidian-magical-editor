@@ -10,7 +10,7 @@ import {
     Workspace,
     WorkspaceLeaf
 } from "obsidian";
-import { createInternalEditor, InternalEditor } from "./editors";
+import { createInternalEditor, InternalEditor, unpatchToggleSourceCommand } from "./editors";
 import { EmbeddableMarkdownEditor } from "./editors/internal/magical-embeddable-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
@@ -146,6 +146,14 @@ export class MagicalEditor {
     this.editor.setValue(content);
     this._updatePlaceholderVisibility();
   }
+  
+  /** 
+   * Manually unpatches the global command. 
+   * Note: This is usually handled automatically via reference counting during destroy().
+   */
+  unpatch(): void {
+    unpatchToggleSourceCommand(true);
+  }
 
   /** Updates the read-only state. */
   setReadOnly(isReadOnly: boolean): void {
@@ -198,6 +206,8 @@ export class MagicalEditor {
 
     this._impl.view.containerEl.detach();
     this._impl.destroy();
+    unpatchToggleSourceCommand();
+
     if (this.placeholderEl) {
       this.placeholderEl.remove();
       this.placeholderEl = null;

@@ -25,6 +25,7 @@ interface MarkdownEditorInstance extends MarkdownScrollableEditView {
 	buildLocalExtensions: () => any[];
 	updateBottomPadding: () => void;
 	destroy: () => void;
+	toggleSource: () => void;
 }
 
 interface MarkdownEditorConstructor {
