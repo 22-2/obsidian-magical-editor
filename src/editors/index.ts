@@ -22,6 +22,7 @@ export async function createInternalEditor(
   options: MagicalEditorOptions,
   getContent: () => string,
 ): Promise<{ impl: InternalEditor; leafToMount: WorkspaceLeaf }> {
+  patchToggleSourceCommand(app);
   if (options.file) {
     // --- File mode ---
     const leafToMount = FileEditor.createFakeLeaf(app);
@@ -77,6 +78,12 @@ export function createFakeLeaf(app: App): WorkspaceLeaf {
     configurable: true,
   });
 
+  fakeLeaf.setViewState = async function(state: any, result: any) {
+    if (this.view && typeof this.view.setState === "function") {
+      await this.view.setState(state, result || { history: false });
+    }
+  };
+
   return fakeLeaf as WorkspaceLeaf;
 }
 
@@ -84,4 +91,41 @@ export function createHiddenLeaf(app: App): WorkspaceLeaf {
   const leaf = app.workspace.getLeaf(true);
   leaf.containerEl.setCssStyles({display: "none"});
   return leaf;
+}
+
+let isToggleSourcePatched = false;
+
+/**
+ * Patches the core "editor:toggle-source" command to manually check for and toggle
+ * Virtual editors (EmbeddableMarkdownEditor), which fail the internal `instanceof MarkdownView` type check.
+ */
+export function patchToggleSourceCommand(app: App) {
+  if (isToggleSourcePatched) return;
+  isToggleSourcePatched = true;
+
+  const commands = (app as any).commands?.commands;
+  if (!commands) return;
+
+  const toggleSourceCmd = commands["editor:toggle-source"];
+  if (!toggleSourceCmd || !toggleSourceCmd.checkCallback) return;
+
+  const originalCheckCallback = toggleSourceCmd.checkCallback;
+
+  toggleSourceCmd.checkCallback = (checking: boolean) => {
+    const ws = app.workspace as any;
+    const activeEditor = ws._activeEditor;
+
+    // Intercept if the active editor is our Virtual Editor (v-markdown)
+    if (activeEditor && typeof activeEditor.getViewType === "function" && activeEditor.getViewType() === "v-markdown") {
+        if (!checking) {
+            if (activeEditor.editMode && typeof activeEditor.editMode.toggleSource === "function") {
+                activeEditor.editMode.toggleSource();
+            }
+        }
+        return true;
+    }
+
+    // Default processing for File Editor and standard Obsidian views
+    return originalCheckCallback.call(toggleSourceCmd, checking);
+  };
 }
