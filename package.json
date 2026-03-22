@@ -1,6 +1,7 @@
 {
   "name": "obsidian-magical-editor",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "type": "module",
   "description": "A reusable inline MarkdownView editor wrapper for Obsidian plugins",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -18,7 +19,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "keywords": [
     "obsidian",
@@ -29,9 +31,26 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@codemirror/view": "^6.39.15",
-    "obsidian": "^1.12.3",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.40.0",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.5.0",
+    "electron": "^41.0.3",
+    "esbuild": "^0.27.4",
+    "monkey-around": "^3.0.0",
+    "obsidian-e2e-toolkit": "github:22-2/obsidian-e2e-toolkit#1.0.0",
+    "playwright": "^1.58.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "obsidian": ">=1.12.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "electron",
+      "obsidian-e2e-toolkit"
+    ]
   }
 }

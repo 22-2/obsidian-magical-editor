@@ -1,11 +1,13 @@
 import {
-  App,
-  Editor,
-  Modal,
-  TFile,
-  WorkspaceLeaf,
+    App,
+    Modal,
+    TFile,
+    WorkspaceLeaf
 } from "obsidian";
-import { MagicalEditor } from "./MagicalEditor";
+import { BaseEditorOptions } from "./BaseEditor";
+import { FakeEditor, FakeEditorOptions } from "./FakeEditor";
+import { MirrorEditor } from "./MirrorEditor";
+import { createHiddenLeaf } from "./editors";
 
 export interface ModalEditorOptions {
   /** Initial content of the editor. Default: `""` */
@@ -18,10 +20,10 @@ export interface ModalEditorOptions {
    */
   file?: TFile;
 
-  /** Modal width CSS value. Default: `"80vw"` */
+  /** Modal width CSS value. Default: `"86vw"` */
   width?: string;
 
-  /** Modal height CSS value. Default: `"85vh"` */
+  /** Modal height CSS value. Default: `"86vh"` */
   height?: string;
 
   /** Called whenever the editor content changes. */
@@ -39,16 +41,23 @@ export interface ModalEditorOptions {
   /** Extra CSS class added to the modal's `containerEl`. */
   containerClass?: string;
 
-  /** If provided, copies the initial cursor position from this editor. */
-  sourceEditor?: Editor;
+  /** Placeholder text for the editor. Default: `"Hello, Magical Editor!"` */
+  placeholder?: string;
+
+  hostLeaf?: WorkspaceLeaf;
+
+  isReadOnly?: BaseEditorOptions["isReadOnly"];
+
+  readonlyPlaceholder?: BaseEditorOptions["readonlyPlaceholder"];
+
+  parentScope?: BaseEditorOptions["parentScope"];
+
+  onEnter?: FakeEditorOptions["onEnter"];
 }
 
 
 /**
  * A ready-to-use Modal that embeds a full Obsidian Markdown editor.
- *
- * Internally backed by `MagicalEditorWrapper`, which handles the editor
- * lifecycle (file mode vs virtual mode, save suppression, onChange, etc.).
  *
  * @example Virtual mode (no file)
  * ```ts
@@ -68,28 +77,20 @@ export interface ModalEditorOptions {
  * }).open();
  * ```
  */
-
-
 export class ModalEditor extends Modal {
-  private hiddenLeaf: WorkspaceLeaf | null = null;
-
   /** The underlying wrapper. Available after the modal is opened. */
-  public wrapper!: MagicalEditor;
+  public editor!: MirrorEditor | FakeEditor;
+  private ownedHostLeaf: WorkspaceLeaf | null = null;
 
-  constructor(app: App, private options: ModalEditorOptions = {}) {
+  constructor(app: App, private options: ModalEditorOptions) {
     super(app);
   }
 
   async onOpen() {
     this.applyStyles();
     await this.initEditor();
-    setTimeout(() => { this.wrapper.focus(); }, 0);
   }
 
-  /**
-   * モーダルの DOM 要素にスタイルとクラスを適用する。
-   * @returns backdrop 要素 (`modalBg`)。後続処理で opacity アニメーションに使用。
-   */
   private applyStyles(): HTMLElement | null {
     const { contentEl, modalEl, containerEl } = this;
 
@@ -148,28 +149,46 @@ export class ModalEditor extends Modal {
         zIndex: "99",
       });
     }
-    setTimeout(() => { modalBg?.setCssStyles({ opacity: "1" }); }, 0);
+    setTimeout(() => { modalBg?.setCssStyles({ opacity: "1" }); });
     return modalBg;
   }
 
-  /**
-   * hiddenLeaf と MagicalEditorWrapper を生成し、エディタ DOM を contentEl に挿入する。
-   */
   private async initEditor(): Promise<void> {
     const { contentEl } = this;
+    const hostLeaf = this.resolveHostLeaf();
 
-    this.hiddenLeaf = this.app.workspace.createLeafInParent(
-      this.app.workspace.rootSplit,
-      0
-    );
-    this.hiddenLeaf.containerEl.setCssStyles({ display: "none" });
+    if (this.options.file) {
+      this.editor = new MirrorEditor(this.app, {
+        hostLeaf,
+        file: this.options.file,
+        initialContent: this.options.initialContent,
+        onChange: this.options.onChange,
+        onEscape: () => this.close(),
+        placeholder: this.options.placeholder || "Hello, Magical Editor!",
+        isReadOnly: this.options.isReadOnly,
+        readonlyPlaceholder: this.options.readonlyPlaceholder,
+        parentScope: this.options.parentScope,
+      });
+    } else {
+      this.editor = new FakeEditor(this.app, {
+        hostLeaf,
+        initialContent: this.options.initialContent,
+        onChange: this.options.onChange,
+        onEscape: () => this.close(),
+        onEnter: this.options.onEnter,
+        placeholder: this.options.placeholder || "Hello, Magical Editor!",
+        isReadOnly: this.options.isReadOnly,
+        readonlyPlaceholder: this.options.readonlyPlaceholder,
+        parentScope: this.options.parentScope,
+      });
+    }
 
-    // Delegate all editor setup to MagicalEditorWrapper
-    this.wrapper = await MagicalEditor.create(this.app, this.hiddenLeaf, {
-      file: this.options.file,
-      initialContent: this.options.initialContent,
-      onChange: this.options.onChange,
-      sourceEditor: this.options.sourceEditor,
+    await this.editor.ready;
+
+    // view.containerEl (.workspace-leaf) must also fill its parent.
+    this.editor.view.containerEl.setCssStyles({
+      height: "100%",
+      width: "100%",
     });
 
     const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
@@ -182,24 +201,37 @@ export class ModalEditor extends Modal {
       position: "relative",
     });
 
-    const view = this.wrapper.view;
-    // view.containerEl (.workspace-leaf) must also fill its parent.
-    (view.containerEl as HTMLElement).setCssStyles({
-      height: "100%",
-      width: "100%",
-    });
-    editorArea.appendChild(view.containerEl);
+    this.editor.loadToDom(editorArea);
+  }
+
+  private resolveHostLeaf(): WorkspaceLeaf {
+    if (this.options.hostLeaf) {
+      return this.options.hostLeaf;
+    }
+
+    this.ownedHostLeaf ??= createHiddenLeaf(this.app);
+    return this.ownedHostLeaf;
   }
 
 
   /** Returns the current content of the editor. */
   getContent(): string {
-    return this.wrapper?.getContent() ?? "";
+    return this.editor?.getContent() ?? "";
+  }
+
+  /** Snapshot getter for external-store integrations such as React's useSyncExternalStore. */
+  getContentSnapshot(): string {
+    return this.editor?.getContentSnapshot() ?? "";
+  }
+
+  /** Subscribes to content changes. Returns an unsubscribe function. */
+  subscribeContent(listener: (content: string) => void): () => void {
+    return this.editor?.subscribeContent(listener) ?? (() => {});
   }
 
   /** Programmatically sets the editor content. */
   setContent(content: string): this {
-    this.wrapper?.setContent(content);
+    this.editor?.setContent(content);
     return this;
   }
 
@@ -208,11 +240,10 @@ export class ModalEditor extends Modal {
     this.options.onClose?.(finalContent);
 
     this.contentEl.empty();
-    this.wrapper?.destroy();
-
-    if (this.hiddenLeaf) {
-      this.hiddenLeaf.detach();
-      this.hiddenLeaf = null;
+    this.editor?.destroy();
+    if (this.ownedHostLeaf?.detach) {
+      this.ownedHostLeaf.detach();
     }
+    this.ownedHostLeaf = null;
   }
 }

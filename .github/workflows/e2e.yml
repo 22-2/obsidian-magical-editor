@@ -1,0 +1,117 @@
+name: E2E Tests
+
+on:
+  push: {}
+  pull_request: {}
+  workflow_dispatch: {}
+
+jobs:
+    e2e:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                os: [macos-latest, windows-latest, ubuntu-latest]
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+
+            - name: Setup pnpm (action)
+              uses: pnpm/action-setup@v4
+              with:
+                  version: "10"
+
+            - name: Setup Node
+              uses: actions/setup-node@v5
+              with:
+                  node-version: "24.x"
+                  cache: "pnpm"
+
+            - name: Cache plugin downloads
+              uses: actions/cache@v4
+              with:
+                  path: myfiles
+                  key: ${{ runner.os }}-myfiles-${{ hashFiles('tests/plugin-sources.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-myfiles-
+
+            - name: Cache toolkit assets
+              uses: actions/cache@v4
+              with:
+                  path: obsidian-e2e-toolkit-assets
+                  key: ${{ runner.os }}-obsidians-e2e-toolkit-v2
+                  restore-keys: |
+                      ${{ runner.os }}-obsidians-e2e-toolkit-
+
+            - name: Ensure pnpm (Unix)
+              if: matrix.os != 'windows-latest'
+              run: |
+                  npm install -g pnpm@10 || corepack prepare pnpm@10 --activate
+                  pnpm -v
+              shell: bash
+
+            - name: Ensure pnpm (Windows)
+              if: matrix.os == 'windows-latest'
+              run: |
+                  npm install -g pnpm@10 -s
+                  pnpm -v
+              shell: pwsh
+
+            - name: Install dependencies
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+                  pnpm install --no-frozen-lockfile
+
+            # - name: Setup Electron
+            #   run: node node_modules/electron/install.js
+
+            - name: Install Playwright chromium (Unix)
+              if: matrix.os != 'windows-latest'
+              run: pnpm exec playwright install chromium
+              shell: bash
+
+            - name: Install Playwright chromium (Windows)
+              if: matrix.os == 'windows-latest'
+              run: pnpm exec playwright install chromium
+              shell: pwsh
+
+            - name: Build plugin under test
+              run: pnpm run build
+
+            - name: Ensure toolkit Obsidian is installed (Unix)
+              if: matrix.os != 'windows-latest'
+              run: |
+                if [ -d "${{ github.workspace }}/obsidian-e2e-toolkit-assets/obsidian-unpacked" ]; then
+                  echo "Toolkit cache found, skipping setup"
+                else
+                  node "${{ github.workspace }}/node_modules/obsidian-e2e-toolkit/scripts/setup.mjs"
+                fi
+              env:
+                OBSIDIAN_E2E_TOOLKIT_HOME: ${{ github.workspace }}
+              shell: bash
+
+            - name: Ensure toolkit Obsidian is installed (Windows)
+              if: matrix.os == 'windows-latest'
+              run: |
+                if (Test-Path "$env:GITHUB_WORKSPACE\obsidian-e2e-toolkit-assets\obsidian-unpacked") {
+                  Write-Host "Toolkit cache found, skipping setup"
+                } else {
+                  node "$env:GITHUB_WORKSPACE\node_modules\obsidian-e2e-toolkit\scripts\setup.mjs"
+                }
+              env:
+                OBSIDIAN_E2E_TOOLKIT_HOME: ${{ github.workspace }}
+              shell: pwsh
+
+            - name: Run E2E tests
+              env:
+                  CI: true
+              run: pnpm run test:e2e
+
+            - name: Upload Playwright report
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: playwright-report-${{ matrix.os }}
+                  path: playwright-report

@@ -102,13 +102,26 @@ export class MyEditorModal extends Modal {
 
 ### `MagicalEditorWrapper`
 
-| Method | Description |
-|---|---|
+| Method                             | Description                      |
+| ---------------------------------- | -------------------------------- |
 | `initialize(target, initialState)` | DOM に attach してエディタを起動 |
-| `getContent()` | 現在のエディタの内容を取得 |
-| `setContent(content)` | エディタの内容をセット |
-| `focus()` | エディタにフォーカス |
-| `unload()` | DOM から取り外し、後片付け |
+| `getContent()`                     | 現在のエディタの内容を取得       |
+| `setContent(content)`              | エディタの内容をセット           |
+| `focus()`                          | エディタにフォーカス             |
+| `unload()`                         | DOM から取り外し、後片付け       |
+
+### React integration
+
+`MagicalEditor` と `ModalEditor` は `getContentSnapshot()` と `subscribeContent()` を提供します。
+React では `useSyncExternalStore` と組み合わせると、controlled component に寄せずに内容だけ安全に購読できます。
+
+```ts
+const content = useSyncExternalStore(
+  editor.subscribeContent.bind(editor),
+  editor.getContentSnapshot.bind(editor),
+  editor.getContentSnapshot.bind(editor),
+);
+```
 
 ### `TInlineView` (interface)
 
