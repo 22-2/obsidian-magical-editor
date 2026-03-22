@@ -227,6 +227,9 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     this.leafToMount = leafToMount;
     this.cleanup = cleanup ?? null;
 
+    // Re-apply latest content in case setContent() was called while async setup was in flight.
+    this.editor.setValue(this.options.initialContent ?? "");
+
     if (trackWorkspaceChanges && this.options.onChange) {
       this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
         if (editor === (this._impl.view as MarkdownView).editor) {
