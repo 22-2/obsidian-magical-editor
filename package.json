@@ -1,6 +1,6 @@
 {
   "name": "obsidian-magical-editor",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "A reusable inline MarkdownView editor wrapper for Obsidian plugins",
   "main": "dist/index.cjs",
@@ -38,11 +38,13 @@
     "electron": "^41.0.3",
     "esbuild": "^0.27.4",
     "monkey-around": "^3.0.0",
-    "obsidian": "^1.12.3",
     "obsidian-e2e-toolkit": "github:22-2/obsidian-e2e-toolkit#1.0.0",
     "playwright": "^1.58.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "obsidian": ">=1.12.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

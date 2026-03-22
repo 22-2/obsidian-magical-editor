@@ -1,5 +1,5 @@
 const { Plugin, ItemView, TFile } = require("obsidian");
-const { MagicalEditor, ModalEditor } = require("../../../src/index.ts");
+const { FakeEditor, MirrorEditor, ModalEditor } = require("../../../src/index.ts");
 
 const FILE_PATH = "magical-editor-harness.md";
 const VIEW_TYPES = {
@@ -58,6 +58,7 @@ class HarnessView extends ItemView {
     });
 
     const options = {
+      hostLeaf: this.leaf,
       initialContent: "",
       placeholder: PLACEHOLDERS[this.mode],
       onChange: (content) => {
@@ -69,7 +70,10 @@ class HarnessView extends ItemView {
       options.file = await ensureHarnessFile(this.app);
     }
 
-    this.editor = await MagicalEditor.create(this.app, this.leaf, options);
+    this.editor = this.mode === "file"
+      ? new MirrorEditor(this.app, options)
+      : new FakeEditor(this.app, options);
+    await this.editor.ready;
     this.editor.loadToDom(host);
 
     this.focusinHandler = syncActiveEditor(this.app, this.editor);

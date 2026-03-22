@@ -13,7 +13,7 @@ export default async function globalSetup() {
     bundle: true,
     format: "cjs",
     platform: "node",
-    target: "nodenext",
+    target: "node20",
     external: [
       "obsidian",
       "electron",

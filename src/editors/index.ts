@@ -1,9 +1,6 @@
 import { App, Command, Editor, MarkdownView, Workspace, WorkspaceLeaf } from "obsidian";
 import { around } from "monkey-around";
-import { MagicalEditorOptions } from "../MagicalEditor";
-import { FileEditor } from "./file-editor";
-import { createEmbeddableMarkdownEditor, EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
-import { VirtualEditor } from "./virtual-editor";
+import { EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 
 /**
  * Internal Obsidian types not exposed in the official API
@@ -18,59 +15,10 @@ interface InternalApp extends App {
   };
 }
 
-/**
- * Common interface for internal editor implementations (File vs Virtual).
- */
-export interface InternalEditor {
+export interface EditorImplementation {
   readonly view: MarkdownView | EmbeddableMarkdownEditor;
   readonly editor: Editor;
   destroy(): void;
-}
-
-/**
- * Factory for creating the appropriate InternalEditor based on options.
- */
-export async function createInternalEditor(
-  app: App,
-  sourceLeaf: WorkspaceLeaf,
-  options: MagicalEditorOptions,
-  getContent: () => string,
-): Promise<{ impl: InternalEditor; leafToMount: WorkspaceLeaf }> {
-  patchToggleSourceCommand(app);
-  if (options.file) {
-    // --- File mode ---
-    const leafToMount = FileEditor.createFakeLeaf(app);
-    await leafToMount.openFile(options.file);
-    const impl = new FileEditor(leafToMount.view as MarkdownView);
-
-    if (options.initialContent !== undefined) {
-      impl.editor.setValue(options.initialContent);
-    }
-
-    return { impl, leafToMount };
-  } else {
-    // --- Virtual mode ---
-    const leafToMount = VirtualEditor.createFakeLeaf(app);
-    const view = await createEmbeddableMarkdownEditor(
-      app,
-      leafToMount.containerEl,
-      {
-        ...options,
-        value: options.initialContent ?? "",
-        onChange: () => {
-          options.onChange?.(getContent());
-        },
-        onEnter: (editor, mod, shift) => {
-          return options.onEnter?.(editor, mod, shift) ?? false;
-        },
-        parentScope: options.parentScope || (sourceLeaf.view as MarkdownView)?.scope || app.scope,
-      },
-      leafToMount,
-    );
-
-    const impl = new VirtualEditor(view);
-    return { impl, leafToMount };
-  }
 }
 
 /**
@@ -112,7 +60,7 @@ let patchRefCount = 0;
 
 /**
  * Patches the core "editor:toggle-source" command to manually check for and toggle
- * Virtual editors (EmbeddableMarkdownEditor), which fail the internal `instanceof MarkdownView` type check.
+ * fake editors (EmbeddableMarkdownEditor), which fail the internal `instanceof MarkdownView` type check.
  *
  * Uses reference counting so it's only patched once and unpatched when the last editor is destroyed.
  */
@@ -134,17 +82,17 @@ export function patchToggleSourceCommand(app: App): void {
         const ws = app.workspace as InternalWorkspace;
         const activeEditor = ws._activeEditor;
 
-        // Intercept if the active editor is our Virtual Editor (v-markdown)
+        // Intercept if the active editor is our fake editor (v-markdown)
         if (
           activeEditor &&
           typeof activeEditor.getViewType === "function" &&
           activeEditor.getViewType() === "v-markdown" &&
           "editMode" in activeEditor
         ) {
-          const virtualEditor = activeEditor as EmbeddableMarkdownEditor;
+          const fakeEditor = activeEditor as EmbeddableMarkdownEditor;
           if (!checking) {
-            if (virtualEditor.editMode && typeof virtualEditor.editMode.toggleSource === "function") {
-              virtualEditor.editMode.toggleSource();
+            if (fakeEditor.editMode && typeof fakeEditor.editMode.toggleSource === "function") {
+              fakeEditor.editMode.toggleSource();
             }
           }
           return true;
