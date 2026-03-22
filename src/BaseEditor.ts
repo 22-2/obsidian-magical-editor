@@ -21,7 +21,7 @@ interface WorkspaceWithActiveEditor extends Workspace {
 }
 
 export interface BaseEditorOptions {
-  hostLeaf: WorkspaceLeaf;
+  hostLeaf?: WorkspaceLeaf;
   initialContent?: string;
   onChange?: (content: string) => void;
   onEscape?: () => void;
@@ -35,6 +35,7 @@ export interface EditorSetupResult {
   impl: EditorImplementation;
   leafToMount: WorkspaceLeaf;
   trackWorkspaceChanges?: boolean;
+  cleanup?: () => void;
 }
 
 type ContentListener = (content: string) => void;
@@ -46,11 +47,20 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
 
   private onChangeRef: EventRef | null = null;
   private placeholderChangeRef: EventRef | null = null;
-  private leafToMount!: WorkspaceLeaf;
+  private leafToMount: WorkspaceLeaf | null = null;
+  private cleanup: (() => void) | null = null;
   private focusinHandler: (() => void) | null = null;
   private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
   private placeholderEl: HTMLElement | null = null;
   private contentListeners = new Set<ContentListener>();
+  private pendingMountEl: HTMLElement | null = null;
+  private pendingFocus = false;
+  private pendingHotkeys: Array<{
+    hotkey: Modifier[] | null;
+    key: string;
+    callback: KeymapEventListener;
+  }> = [];
+  private destroyed = false;
 
   protected constructor(
     protected readonly app: App,
@@ -72,7 +82,7 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
   }
 
   getContent(): string {
-    return this.editor.getValue();
+    return this._impl?.editor.getValue() ?? this.options.initialContent ?? "";
   }
 
   getContentSnapshot(): string {
@@ -87,6 +97,11 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
   }
 
   setContent(content: string): void {
+    this.options.initialContent = content;
+    if (!this._impl) {
+      return;
+    }
+
     this.editor.setValue(content);
     this.updatePlaceholderVisibility();
   }
@@ -97,6 +112,9 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
 
   setReadOnly(isReadOnly: boolean): void {
     this.options.isReadOnly = isReadOnly;
+    if (!this._impl) {
+      return;
+    }
     this.applyReadOnlyState();
     this.updatePlaceholderText();
   }
@@ -106,24 +124,53 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     if (readonlyPlaceholder !== undefined) {
       this.options.readonlyPlaceholder = readonlyPlaceholder;
     }
+    if (!this._impl) {
+      return;
+    }
     this.updatePlaceholderText();
   }
 
   loadToDom(el: HTMLElement): void {
     el.empty();
+    if (!this.leafToMount) {
+      this.pendingMountEl = el;
+      return;
+    }
+
+    this.leafToMount.containerEl.setCssStyles({
+      display: "flex",
+      flexDirection: "column",
+      width: "100%",
+      height: "100%",
+    });
     el.appendChild(this.leafToMount.containerEl);
   }
 
   registerHotkey(hotkey: Modifier[] | null, key: string, callback: KeymapEventListener): void {
+    if (!this._impl) {
+      this.pendingHotkeys.push({ hotkey, key, callback });
+      return;
+    }
+
     this._impl.view.scope ??= new Scope();
     this._impl.view.scope.register(hotkey, key, callback);
   }
 
   focus(): void {
+    if (!this._impl) {
+      this.pendingFocus = true;
+      return;
+    }
+
     this.editor.focus();
   }
 
   destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+
     this.contentListeners.clear();
 
     if (this.onChangeRef) {
@@ -135,15 +182,24 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
       this.placeholderChangeRef = null;
     }
 
-    if (this.focusinHandler) {
+    if (this.focusinHandler && this._impl) {
       this._impl.view.containerEl.removeEventListener("focusin", this.focusinHandler);
       this.focusinHandler = null;
       (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = this.prevActiveEditor ?? null;
       this.prevActiveEditor = null;
     }
 
-    this._impl.view.containerEl.detach();
-    this._impl.destroy();
+    if (this._impl) {
+      this._impl.view.containerEl.detach();
+      this._impl.destroy();
+      this._impl = undefined as never;
+    }
+
+    this.leafToMount = null;
+    this.cleanup?.();
+    this.cleanup = null;
+    this.pendingMountEl = null;
+    this.pendingHotkeys = [];
     unpatchToggleSourceCommand();
 
     if (this.placeholderEl) {
@@ -159,9 +215,17 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     };
 
     patchToggleSourceCommand(this.app);
-    const { impl, leafToMount, trackWorkspaceChanges } = await this.createImplementation(handleContentChange);
+    const { impl, leafToMount, trackWorkspaceChanges, cleanup } = await this.createImplementation(handleContentChange);
+    if (this.destroyed) {
+      impl.destroy();
+      cleanup?.();
+      unpatchToggleSourceCommand();
+      return;
+    }
+
     this._impl = impl;
     this.leafToMount = leafToMount;
+    this.cleanup = cleanup ?? null;
 
     if (trackWorkspaceChanges && this.options.onChange) {
       this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
@@ -176,10 +240,15 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     this.applyStyles();
     this.initPlaceholder();
     this.applyReadOnlyState();
+    this.flushPendingOperations();
 
     window.setTimeout(() => {
+      if (this.destroyed || !this._impl) {
+        return;
+      }
+
       this.editor.focus();
-      const hostView = this.options.hostLeaf.view;
+      const hostView = this.options.hostLeaf?.view;
       if (hostView?.getViewType?.() === "markdown" && "editor" in hostView) {
         this.editor.setCursor((hostView as MarkdownView).editor.getCursor());
       }
@@ -296,6 +365,28 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
   private notifyContentListeners(content: string): void {
     for (const listener of this.contentListeners) {
       listener(content);
+    }
+  }
+
+  private flushPendingOperations(): void {
+    if (!this._impl) {
+      return;
+    }
+
+    if (this.pendingMountEl) {
+      const mountEl = this.pendingMountEl;
+      this.pendingMountEl = null;
+      this.loadToDom(mountEl);
+    }
+
+    for (const hotkey of this.pendingHotkeys) {
+      this.registerHotkey(hotkey.hotkey, hotkey.key, hotkey.callback);
+    }
+    this.pendingHotkeys = [];
+
+    if (this.pendingFocus) {
+      this.pendingFocus = false;
+      this.focus();
     }
   }
 }

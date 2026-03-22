@@ -5,9 +5,11 @@ import { EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 /**
  * Internal Obsidian types not exposed in the official API
  */
-interface InternalWorkspace extends Workspace {
+type InternalWorkspace = Workspace & {
   _activeEditor: MarkdownView | EmbeddableMarkdownEditor | null;
-}
+  rootSplit?: Workspace["rootSplit"];
+  createLeafInParent?: (parent: unknown, index: number) => WorkspaceLeaf;
+};
 
 interface InternalApp extends App {
   commands: {
@@ -27,7 +29,11 @@ export interface EditorImplementation {
  * in modals or separate DOM elements.
  */
 export function createFakeLeaf(app: App): WorkspaceLeaf {
-  const fakeLeaf = Object.create(app.workspace.getMostRecentLeaf());
+  const prototypeLeaf =
+    app.workspace.getMostRecentLeaf() ??
+    app.workspace.activeLeaf ??
+    app.workspace.getLeaf(true);
+  const fakeLeaf = Object.create(prototypeLeaf);
   fakeLeaf.containerEl = createDiv();
   fakeLeaf.__FAKE_LEAF__ = true;
 
@@ -50,7 +56,10 @@ export function createFakeLeaf(app: App): WorkspaceLeaf {
 }
 
 export function createHiddenLeaf(app: App): WorkspaceLeaf {
-  const leaf = app.workspace.getLeaf(true);
+  const workspace = app.workspace as InternalWorkspace;
+  const leaf = workspace.rootSplit
+    ? workspace.createLeafInParent(workspace.rootSplit, 0)
+    : app.workspace.getLeaf(true);
   leaf.containerEl.setCssStyles({display: "none"});
   return leaf;
 }

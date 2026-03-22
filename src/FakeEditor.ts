@@ -13,6 +13,7 @@ export interface FakeEditorOptions extends BaseEditorOptions {
     mod: boolean,
     shift: boolean,
   ) => boolean | void;
+  onChange?: (content: string) => void;
 }
 
 export class FakeEditor extends BaseEditor<FakeEditorOptions> {
@@ -40,7 +41,7 @@ export class FakeEditor extends BaseEditor<FakeEditorOptions> {
         },
         parentScope:
           this.options.parentScope ||
-          (this.options.hostLeaf.view as MarkdownView | undefined)?.scope ||
+          (this.options.hostLeaf?.view as MarkdownView | undefined)?.scope ||
           this.app.scope,
       },
       leafToMount,

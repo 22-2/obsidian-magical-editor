@@ -1,5 +1,6 @@
 import { App, MarkdownView, TFile } from "obsidian";
 import { BaseEditor, BaseEditorOptions, EditorSetupResult } from "./BaseEditor";
+import { createHiddenLeaf } from "./editors";
 import { MirrorEditorAdapter } from "./editors/mirror-editor";
 
 export interface MirrorEditorOptions extends BaseEditorOptions {
@@ -12,7 +13,7 @@ export class MirrorEditor extends BaseEditor<MirrorEditorOptions> {
   }
 
   protected async createImplementation(): Promise<EditorSetupResult> {
-    const leafToMount = this.options.hostLeaf;
+    const leafToMount = createHiddenLeaf(this.app);
     await leafToMount.openFile(this.options.file);
 
     const impl = new MirrorEditorAdapter(leafToMount.view as MarkdownView);
@@ -24,6 +25,9 @@ export class MirrorEditor extends BaseEditor<MirrorEditorOptions> {
       impl,
       leafToMount,
       trackWorkspaceChanges: true,
+      cleanup: () => {
+        leafToMount.detach?.();
+      },
     };
   }
 }
