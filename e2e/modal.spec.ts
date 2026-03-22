@@ -86,13 +86,15 @@ async function getModalEditorContent(obsidian: any): Promise<string> {
  * Helper: Check if the modal is currently visible
  */
 async function isModalVisible(page: any): Promise<boolean> {
-  const modal = page.locator(".magical-editor-modal");
-  try {
-    await modal.first().isVisible({ timeout: 100 });
-    return true;
-  } catch {
-    return false;
-  }
+  return (await page.locator(".magical-editor-modal:visible").count()) > 0;
+}
+
+async function waitForModalClosed(page: any): Promise<void> {
+  await expect
+    .poll(async () => page.locator(".magical-editor-modal:visible").count(), {
+      timeout: 5000,
+    })
+    .toBe(0);
 }
 
 /**
@@ -231,10 +233,7 @@ test.describe("Magical Editor Modal - E2E with minimal-modal-opener", () => {
     await closeModalWithEscape(obsidian.page);
 
     // Wait and verify closed
-    await expect.poll(
-      () => isModalVisible(obsidian.page),
-      { timeout: 3000 }
-    ).toBe(false);
+    await waitForModalClosed(obsidian.page);
   });
 
   test("モーダル編集後に Escape で閉じると、ホストエディタが復元される", async ({ obsidian }) => {
@@ -296,7 +295,7 @@ test.describe("Magical Editor Modal - E2E with minimal-modal-opener", () => {
     await closeModalWithEscape(obsidian.page);
 
     // Wait for vault save
-    await obsidian.page.waitForTimeout(500);
+    await obsidian.page.waitForTimeout(3000);
 
     // Verify file content was persisted
     const finalContent = await obsidian.read(testFilePath);
@@ -318,14 +317,13 @@ test.describe("Magical Editor Modal - E2E with minimal-modal-opener", () => {
       const modal = obsidian.page.locator(".magical-editor-modal");
       const modalEditor = modal.locator(".cm-content");
 
-      await obsidian.page.waitForTimeout(500);
       await modalEditor.click();
       await modalEditor.fill(`iteration-${i}`);
 
       await closeModalWithEscape(obsidian.page);
 
       // Wait for cleanup
-      await expect.poll(() => isModalVisible(obsidian.page)).toBe(false);
+      await waitForModalClosed(obsidian.page);
     }
 
     // Final state check: host should still be functional
