@@ -33,6 +33,7 @@ jobs:
         with:
           node-version: "24.x"
           cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Cache plugin downloads
         uses: actions/cache@v4
@@ -49,6 +50,15 @@ jobs:
           key: "${{ runner.os }}-obsidians-e2e-toolkit-v4-${{ env.OBSIDIAN_E2E_TOOLKIT_OBSIDIAN_VERSION }}"
           restore-keys: |
             ${{ runner.os }}-obsidians-e2e-toolkit-v4-
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-chromium-
 
       - name: Ensure pnpm (Unix)
         if: matrix.os != 'windows-latest'
@@ -72,12 +82,16 @@ jobs:
           pnpm install --no-frozen-lockfile
 
       - name: Install Playwright chromium (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest' && steps.playwright-cache.outputs.cache-hit != 'true'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .cache/ms-playwright
         run: pnpm exec playwright install chromium
         shell: bash
 
       - name: Install Playwright chromium (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && steps.playwright-cache.outputs.cache-hit != 'true'
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: .cache/ms-playwright
         run: pnpm exec playwright install chromium
         shell: pwsh
 
@@ -107,6 +121,7 @@ jobs:
       - name: Run E2E tests
         env:
           CI: true
+          PLAYWRIGHT_BROWSERS_PATH: .cache/ms-playwright
         run: pnpm run test:e2e
 
       - name: Upload Playwright report
