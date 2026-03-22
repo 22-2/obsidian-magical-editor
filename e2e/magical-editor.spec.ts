@@ -1,7 +1,9 @@
 import path from "node:path";
 import { expect, test } from "obsidian-e2e-toolkit";
+import { fileURLToPath } from "url"
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const HARNESS_PATH = path.resolve("e2e/fixtures/magical-editor-harness");
+const HARNESS_PATH = path.join(__dirname, "fixtures/magical-editor-harness");
 const MODES = ["file", "virtual"] as const;
 
 test.use({
