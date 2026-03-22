@@ -147,3 +147,4 @@ dist
 myfile/
 playwright-report/
 test-results/
+main.js

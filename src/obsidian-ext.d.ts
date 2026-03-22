@@ -2,6 +2,11 @@ import { EditorView } from "@codemirror/view";
 import "obsidian";
 
 declare module "obsidian" {
+
+  interface FileManager {
+    createNewMarkdownFile(folderPath: string, fileName?: string): Promise<TFile>;
+  }
+
   interface WorkspaceLeaf {
     containerEl: HTMLElement;
     headerEl: HTMLElement;

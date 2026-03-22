@@ -82,17 +82,35 @@ interface InternalEditor extends Editor {
  * @param options Editor options
  * @returns A configured markdown editor
  */
-export function createEmbeddableMarkdownEditor(
+export async function createEmbeddableMarkdownEditor(
 	app: App,
 	container: HTMLElement,
 	options: Partial<MarkdownEditorProps>,
 	leaf?: WorkspaceLeaf
-): EmbeddableMarkdownEditor {
+): Promise<EmbeddableMarkdownEditor> {
 	// Get the editor class
 	const EditorClass = resolveEditorPrototype(app);
+	const associatedFile = await ensureAssociatedFile(app);
 
 	// Create the editor instance
-	return new EmbeddableMarkdownEditor(app, EditorClass, container, options, leaf);
+	return new EmbeddableMarkdownEditor(app, EditorClass, container, options, associatedFile, leaf);
+}
+
+async function ensureAssociatedFile(app: App): Promise<TFile> {
+	const lastOpenFilePath = app.workspace.getLastOpenFiles()[0];
+	if (lastOpenFilePath) {
+		const lastOpenFile = app.vault.getFileByPath(lastOpenFilePath);
+		if (lastOpenFile) {
+			return lastOpenFile;
+		}
+	}
+
+	const existingMarkdownFile = app.vault.getMarkdownFiles()[0];
+	if (existingMarkdownFile) {
+		return existingMarkdownFile;
+	}
+
+	return app.fileManager.createNewMarkdownFile(app.vault.getRoot().path);
 }
 
 /**
@@ -222,6 +240,7 @@ export class EmbeddableMarkdownEditor {
 		EditorClass: MarkdownEditorConstructor,
 		container: HTMLElement,
 		options: Partial<MarkdownEditorProps>,
+		associatedFile: TFile,
 		leaf?: WorkspaceLeaf
 	) {
 		this.app = app;
@@ -256,13 +275,7 @@ export class EmbeddableMarkdownEditor {
 
 		// Create a robust mock view (owner)
 		// DO NOT USE FakeTFile, because it will cause the editor to be treated as a real file, which will cause various problems
-		const filePath = app.workspace.getLastOpenFiles()[0] || app.vault.getMarkdownFiles()[0]?.path;
-
-		if (!filePath) {
-			throw new Error("No open file found to associate with the editor. Please open a file and try again.");
-		}
-		
-		const file = app.vault.getFileByPath(filePath);
+		const file = associatedFile;
 
 		const mockView = new Component() as MockView;
 		Object.assign(mockView, {

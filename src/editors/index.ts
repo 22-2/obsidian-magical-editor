@@ -51,7 +51,7 @@ export async function createInternalEditor(
   } else {
     // --- Virtual mode ---
     const leafToMount = VirtualEditor.createFakeLeaf(app);
-    const view = createEmbeddableMarkdownEditor(
+    const view = await createEmbeddableMarkdownEditor(
       app,
       leafToMount.containerEl,
       {

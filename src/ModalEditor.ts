@@ -192,6 +192,16 @@ export class ModalEditor extends Modal {
     return this.editor?.getContent() ?? "";
   }
 
+  /** Snapshot getter for external-store integrations such as React's useSyncExternalStore. */
+  getContentSnapshot(): string {
+    return this.editor?.getContentSnapshot() ?? "";
+  }
+
+  /** Subscribes to content changes. Returns an unsubscribe function. */
+  subscribeContent(listener: (content: string) => void): () => void {
+    return this.editor?.subscribeContent(listener) ?? (() => {});
+  }
+
   /** Programmatically sets the editor content. */
   setContent(content: string): this {
     this.editor?.setContent(content);

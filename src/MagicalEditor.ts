@@ -53,6 +53,8 @@ export interface MagicalEditorOptions {
   parentScope?: Scope;
 }
 
+type ContentListener = (content: string) => void;
+
 /**
  * Wraps an Obsidian MarkdownView inside a WorkspaceLeaf for embedding in a Modal or ItemView.
  *
@@ -73,6 +75,7 @@ export class MagicalEditor {
   private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
   private uninstaller: (() => void) | null = null;
   private placeholderEl: HTMLElement | null = null;
+  private contentListeners = new Set<ContentListener>();
 
   private constructor(
     private readonly app: App,
@@ -93,10 +96,18 @@ export class MagicalEditor {
   }
 
   private async _init(): Promise<void> {
+    const handleContentChange = (content: string) => {
+      this.options.onChange?.(content);
+      this._notifyContentListeners(content);
+    };
+
     const { impl, leafToMount } = await createInternalEditor(
       this.app,
       this.sourceLeaf,
-      this.options,
+      {
+        ...this.options,
+        onChange: handleContentChange,
+      },
       () => this.getContent(),
     );
     this._impl = impl;
@@ -105,7 +116,7 @@ export class MagicalEditor {
     if (this.options.file && this.options.onChange) {
       this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
         if (editor === (this._impl.view as MarkdownView).editor) {
-          this.options.onChange!(editor.getValue());
+          handleContentChange(editor.getValue());
         }
       });
     }
@@ -139,6 +150,19 @@ export class MagicalEditor {
   /** Returns the current editor content. */
   getContent(): string {
     return this.editor.getValue();
+  }
+
+  /** Snapshot getter for external-store integrations such as React's useSyncExternalStore. */
+  getContentSnapshot(): string {
+    return this.getContent();
+  }
+
+  /** Subscribes to content changes. Returns an unsubscribe function. */
+  subscribeContent(listener: ContentListener): () => void {
+    this.contentListeners.add(listener);
+    return () => {
+      this.contentListeners.delete(listener);
+    };
   }
 
   /** Replaces the editor content. */
@@ -187,6 +211,8 @@ export class MagicalEditor {
   }
 
   destroy(): void {
+    this.contentListeners.clear();
+
     if (this.uninstaller) {
       this.uninstaller();
       this.uninstaller = null;
@@ -332,6 +358,12 @@ export class MagicalEditor {
     } else {
       this.editor.cm.contentDOM.contentEditable = "true";
       this._impl.view.containerEl.removeClass("is-read-only");
+    }
+  }
+
+  private _notifyContentListeners(content: string): void {
+    for (const listener of this.contentListeners) {
+      listener(content);
     }
   }
 }

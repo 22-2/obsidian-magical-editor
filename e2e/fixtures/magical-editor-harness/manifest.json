@@ -1,0 +1,9 @@
+{
+  "id": "magical-editor-harness",
+  "name": "Magical Editor Harness",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "E2E harness for obsidian-magical-editor",
+  "author": "GitHub Copilot",
+  "isDesktopOnly": false
+}
