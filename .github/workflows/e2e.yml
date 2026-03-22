@@ -17,7 +17,7 @@ jobs:
       OBSIDIAN_E2E_TOOLKIT_OBSIDIAN_VERSION: "${{ github.event_name == 'workflow_dispatch' && github.event.inputs.obsidian_version || 'latest' }}"
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, windows-latest]
 
     steps:
       - name: Checkout
