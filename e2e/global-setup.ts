@@ -29,6 +29,6 @@ export default async function globalSetup() {
       "@lezer/highlight",
       "@lezer/lr",
     ],
-    logLevel: "info",
+    logLevel: "debug",
   });
 }

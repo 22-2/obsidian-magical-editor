@@ -4,7 +4,7 @@ import "obsidian";
 declare module "obsidian" {
 
   interface FileManager {
-    createNewMarkdownFile(folderPath: string, fileName?: string): Promise<TFile>;
+    createNewMarkdownFile(): Promise<TFile>;
   }
 
   interface WorkspaceLeaf {

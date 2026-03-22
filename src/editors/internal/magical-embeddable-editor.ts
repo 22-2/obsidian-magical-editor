@@ -110,7 +110,7 @@ async function ensureAssociatedFile(app: App): Promise<TFile> {
 		return existingMarkdownFile;
 	}
 
-	return app.fileManager.createNewMarkdownFile(app.vault.getRoot().path);
+	return app.fileManager.createNewMarkdownFile();
 }
 
 /**

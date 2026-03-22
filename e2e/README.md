@@ -4,16 +4,16 @@ Comprehensive end-to-end test suite for Obsidian Magical Editor, using Playwrigh
 
 ## Overview
 
-This directory contains three test suites:
+This directory contains test suites:
 
 1. **`modal.spec.ts`** - Modal editor functional tests (primary focus)
-2. **`magical-editor.spec.ts`** - Harness-based editor tests (legacy reference)
+2. **`magical-editor.spec.ts`** - Harness-based virtual editor tests
 3. **`live-editor.spec.ts`** - External reference from MFDI project (documentation only)
 
 ### Why Three Test Files?
 
 - **modal.spec.ts** is the **recommended production test** - directly tests the ModalEditor against minimal-modal-opener plugin
-- **magical-editor.spec.ts** tests the harness plugin, but the file-view mode is currently broken
+- **magical-editor.spec.ts** tests the harness plugin in virtual mode only
 - **live-editor.spec.ts** demonstrates advanced patterns from the [mobile-first-daily-interface](https://github.com/tmg-publish/mobile-first-daily-interface) plugin, showing how to validate complex editor interactions
 
 ## Running Tests
@@ -28,7 +28,7 @@ pnpm test:e2e
 pnpm playwright test e2e/modal.spec.ts
 ```
 
-### Harness tests (legacy, has issues with file-view)
+### Harness tests (virtual mode only)
 ```bash
 pnpm playwright test e2e/magical-editor.spec.ts
 ```
@@ -218,11 +218,9 @@ test("新しい機能をテストする", async ({ obsidian, page }) => {
 
 ## Known Issues
 
-### ❌ magical-editor.spec.ts file-view mode
-- The harness plugin's file-view (mirror editor) is currently broken
-- Tests in the `file editor` describe block will fail
-- Virtual editor tests work fine
-- **Workaround:** Use `modal.spec.ts` instead for file editing validation
+### ℹ️ magical-editor.spec.ts scope
+- `magical-editor.spec.ts` intentionally covers only virtual mode
+- File-editor behavior is validated through `modal.spec.ts`
 
 ### ⚠️ modal.spec.ts - Resource cleanup
 - If tests run 10+ times rapidly, occasional "focus lost" errors may occur
