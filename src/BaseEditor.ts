@@ -77,8 +77,8 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     return this._impl.editor;
   }
 
-  get view(): MarkdownView | EmbeddableMarkdownEditor {
-    return this._impl.view;
+  get view(): MarkdownView | EmbeddableMarkdownEditor | undefined {
+    return this._impl?.view;
   }
 
   getContent(): string {

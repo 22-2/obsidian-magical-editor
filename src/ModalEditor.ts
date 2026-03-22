@@ -186,7 +186,11 @@ export class ModalEditor extends Modal {
     await this.editor.ready;
 
     // view.containerEl (.workspace-leaf) must also fill its parent.
-    this.editor.view.containerEl.setCssStyles({
+    const editorView = this.editor.view;
+    if (!editorView) {
+      throw new Error("ModalEditor: editor view is not ready");
+    }
+    editorView.containerEl.setCssStyles({
       height: "100%",
       width: "100%",
     });
