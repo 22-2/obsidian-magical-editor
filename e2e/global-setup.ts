@@ -4,8 +4,8 @@ import { build } from "esbuild";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export default async function globalSetup() {
-  const fixtureDir = path.join(__dirname, "fixtures", "magical-editor-harness");
+async function buildFixturePlugin(fixtureName: string) {
+  const fixtureDir = path.join(__dirname, "fixtures", fixtureName);
 
   await build({
     entryPoints: [path.join(fixtureDir, "main.src.js")],
@@ -31,4 +31,9 @@ export default async function globalSetup() {
     ],
     logLevel: "debug",
   });
+}
+
+export default async function globalSetup() {
+  await buildFixturePlugin("magical-editor-harness");
+  await buildFixturePlugin("minimal-modal-opener");
 }

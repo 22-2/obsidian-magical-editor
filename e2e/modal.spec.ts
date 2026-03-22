@@ -1,6 +1,7 @@
 import { expect, test } from "obsidian-e2e-toolkit";
 import path from "node:path";
 import { ObsidianAPI } from "obsidian-e2e-toolkit";
+import { fileURLToPath } from "node:url";
 
 /**
  * Magical Editor Modal E2E Test Suite
@@ -15,7 +16,8 @@ import { ObsidianAPI } from "obsidian-e2e-toolkit";
  * - expect.poll(): Async state verification with retry
  */
 
-const PLUGIN_PATH = path.resolve("myfile/minimal-modal-opener");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PLUGIN_PATH = path.join(__dirname, "fixtures/minimal-modal-opener");
 
 test.use({
   vaultOptions: {
@@ -23,6 +25,7 @@ test.use({
     plugins: [
       {
         path: PLUGIN_PATH,
+        symlink: true,
       },
     ],
   },

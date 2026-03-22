@@ -1,0 +1,11 @@
+{
+	"id": "minimal-modal-opener",
+	"name": "Minimal Modal Opener",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "A minimal example of using obsidian-magical-editor.",
+	"author": "Antigravity",
+	"authorUrl": "https://github.com",
+	"fundingUrl": "https://github.com",
+	"isDesktopOnly": false
+}
