@@ -89,6 +89,7 @@ jobs:
         run: |
           node "${{ github.workspace }}/node_modules/obsidian-e2e-toolkit/scripts/setup.mjs"
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OBSIDIAN_E2E_TOOLKIT_HOME: ${{ github.workspace }}
           OBSIDIAN_E2E_TOOLKIT_OBSIDIAN_VERSION: ${{ env.OBSIDIAN_E2E_TOOLKIT_OBSIDIAN_VERSION }}
         shell: bash
@@ -98,6 +99,7 @@ jobs:
         run: |
           node "$env:GITHUB_WORKSPACE\node_modules\obsidian-e2e-toolkit\scripts\setup.mjs"
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OBSIDIAN_E2E_TOOLKIT_HOME: ${{ github.workspace }}
           OBSIDIAN_E2E_TOOLKIT_OBSIDIAN_VERSION: ${{ env.OBSIDIAN_E2E_TOOLKIT_OBSIDIAN_VERSION }}
         shell: pwsh
