@@ -1,8 +1,11 @@
 {
-  "name": "obsidian-magical-editor",
+  "name": "@22-2/obsidian-magical-editor",
   "version": "1.0.1",
   "type": "module",
   "description": "A reusable inline MarkdownView editor wrapper for Obsidian plugins",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",

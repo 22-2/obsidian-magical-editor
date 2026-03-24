@@ -32,6 +32,8 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: "24.x"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@22-2"
           cache: "pnpm"
           cache-dependency-path: pnpm-lock.yaml
 
@@ -76,10 +78,8 @@ jobs:
 
       - name: Install dependencies
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-          pnpm install --no-frozen-lockfile
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm install --no-frozen-lockfile
 
       - name: Install Playwright chromium (Unix)
         if: matrix.os != 'windows-latest' && steps.playwright-cache.outputs.cache-hit != 'true'
