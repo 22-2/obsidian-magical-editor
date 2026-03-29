@@ -298,6 +298,9 @@ export class EmbeddableMarkdownEditor {
 			leaf: leaf || app.workspace.getLeaf(false),
 			register: (cb: (editor: EmbeddableMarkdownEditor) => void) => self.register(cb),
 			getState: () => ({ mode: "source", source: false }),
+      syncScroll: () => {
+        // this.editMode.getSCroll();
+      },
 			setState: async () => {},
 			previewMode: {
 				containerEl: createDiv(),
