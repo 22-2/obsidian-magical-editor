@@ -106,6 +106,13 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     this.updatePlaceholderVisibility();
   }
 
+  setCursor(pos: number): void {
+    if (!this._impl) {
+      return;
+    }
+    this.editor.setCursor(pos, pos);
+  }
+
   unpatch(): void {
     unpatchToggleSourceCommand(true);
   }
