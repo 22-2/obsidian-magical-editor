@@ -60,6 +60,7 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     key: string;
     callback: KeymapEventListener;
   }> = [];
+  private pendingInitialContentSync = false;
   private destroyed = false;
 
   protected constructor(
@@ -99,9 +100,11 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
   setContent(content: string): void {
     this.options.initialContent = content;
     if (!this._impl) {
+      this.pendingInitialContentSync = true;
       return;
     }
 
+    this.pendingInitialContentSync = false;
     this.editor.setValue(content);
     this.updatePlaceholderVisibility();
   }
@@ -234,8 +237,13 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     this.leafToMount = leafToMount;
     this.cleanup = cleanup ?? null;
 
-    // Re-apply latest content in case setContent() was called while async setup was in flight.
-    this.editor.setValue(this.options.initialContent ?? "");
+    if (this.pendingInitialContentSync) {
+      // Re-apply latest content only when setContent() ran before async setup finished.
+      // This keeps ready() as the point where DOM and snapshot are guaranteed in sync,
+      // without forcing an extra layout pass on the common first-mount path.
+      this.editor.setValue(this.options.initialContent ?? "");
+      this.pendingInitialContentSync = false;
+    }
 
     if (trackWorkspaceChanges && this.options.onChange) {
       this.onChangeRef = this.app.workspace.on("editor-change", (editor) => {
