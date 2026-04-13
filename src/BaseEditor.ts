@@ -14,6 +14,7 @@ import {
   patchToggleSourceCommand,
   unpatchToggleSourceCommand,
 } from "./editors";
+import { EDITOR_CONTENT_PADDING_STYLE } from "./editors/internal/editor-content-style";
 import { EmbeddableMarkdownEditor } from "./editors/internal/magical-embeddable-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {
@@ -286,10 +287,7 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
   }
 
   private applyStyles(): void {
-    this._impl.view.editor.cm.contentDOM.setCssStyles({
-      paddingTop: "var(--editor-padding-top)",
-      paddingBottom: "var(--editor-padding-bottom)",
-    });
+    this._impl.view.editor.cm.contentDOM.setCssStyles(EDITOR_CONTENT_PADDING_STYLE);
   }
 
   private registerMousedownHandler(): void {

@@ -1,5 +1,6 @@
 import { Editor } from "obsidian";
 import { EditorImplementation } from "./index";
+import { EDITOR_CONTENT_PADDING_STYLE } from "./internal/editor-content-style";
 import { EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 
 export class FakeEditorAdapter implements EditorImplementation {
@@ -24,10 +25,7 @@ export class FakeEditorAdapter implements EditorImplementation {
     });
 
     if (this.view.activeCM?.contentDOM) {
-      this.view.activeCM.contentDOM.setCssStyles({
-        paddingTop: "var(--editor-padding-top)",
-        paddingBottom: "var(--editor-padding-bottom)",
-      });
+      this.view.activeCM.contentDOM.setCssStyles(EDITOR_CONTENT_PADDING_STYLE);
     }
   }
 }
