@@ -37,15 +37,6 @@ jobs:
                   cache: "pnpm"
                   cache-dependency-path: pnpm-lock.yaml
 
-            - name: Read Obsidian version from versions.json
-              id: set-version
-              run: |
-                  node -e '
-                    const fs = require("fs");
-                    const ver = JSON.parse(fs.readFileSync("versions.json", "utf8")).obsidian || "latest";
-                    fs.appendFileSync(process.env.GITHUB_OUTPUT, `obsidian_version=${ver}\n`);
-                  '
-
             - name: Cache plugin downloads
               uses: actions/cache@v5
               with:
@@ -62,7 +53,6 @@ jobs:
                       ${{ runner.os }}-obsidians-e2e-toolkit-v4-${{
                         github.event_name == 'workflow_dispatch'
                         && github.event.inputs.obsidian_version
-                        || steps.set-version.outputs.obsidian_version
                         || 'latest'
                       }}
                   restore-keys: |
@@ -101,7 +91,6 @@ jobs:
                       ${{
                         github.event_name == 'workflow_dispatch'
                         && github.event.inputs.obsidian_version
-                        || steps.set-version.outputs.obsidian_version
                         || 'latest'
                       }}
               run: node node_modules/obsidian-e2e-toolkit/scripts/setup.mjs
