@@ -1,5 +1,12 @@
-import { App, Command, Editor, MarkdownView, Workspace, WorkspaceLeaf } from "obsidian";
 import { around } from "monkey-around";
+import {
+  App,
+  Command,
+  Editor,
+  MarkdownView,
+  Workspace,
+  WorkspaceLeaf,
+} from "obsidian";
 import { EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 
 /**
@@ -41,12 +48,14 @@ export function createFakeLeaf(app: App): WorkspaceLeaf {
   let _view: MarkdownView | undefined = undefined;
   Object.defineProperty(fakeLeaf, "view", {
     get: () => _view,
-    set: (v) => { _view = v; },
+    set: (v) => {
+      _view = v;
+    },
     enumerable: true,
     configurable: true,
   });
 
-  fakeLeaf.setViewState = async function(state: any, result: any) {
+  fakeLeaf.setViewState = async function (state: any, result: any) {
     if (this.view && typeof this.view.setState === "function") {
       await this.view.setState(state, result || { history: false });
     }
@@ -60,7 +69,7 @@ export function createHiddenLeaf(app: App): WorkspaceLeaf {
   const leaf = workspace.rootSplit
     ? workspace.createLeafInParent(workspace.rootSplit, 0)
     : app.workspace.getLeaf(true);
-  leaf.containerEl.setCssStyles({display: "none"});
+  leaf.containerEl.setCssStyles({ display: "none" });
   return leaf;
 }
 
@@ -85,7 +94,7 @@ export function patchToggleSourceCommand(app: App): void {
 
   toggleSourceUninstaller = around(toggleSourceCmd, {
     checkCallback: (originalCheckCallback) => {
-      return function(this: Command, checking: boolean) {
+      return function (this: Command, checking: boolean) {
         if (!originalCheckCallback) return false;
 
         const ws = app.workspace as InternalWorkspace;
@@ -100,7 +109,10 @@ export function patchToggleSourceCommand(app: App): void {
         ) {
           const fakeEditor = activeEditor as EmbeddableMarkdownEditor;
           if (!checking) {
-            if (fakeEditor.editMode && typeof fakeEditor.editMode.toggleSource === "function") {
+            if (
+              fakeEditor.editMode &&
+              typeof fakeEditor.editMode.toggleSource === "function"
+            ) {
               fakeEditor.editMode.toggleSource();
             }
           }
@@ -110,7 +122,7 @@ export function patchToggleSourceCommand(app: App): void {
         // Default processing for File Editor and standard Obsidian views
         return originalCheckCallback.call(this, checking);
       };
-    }
+    },
   });
 }
 

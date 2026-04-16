@@ -2,7 +2,6 @@ import { EditorView } from "@codemirror/view";
 import "obsidian";
 
 declare module "obsidian" {
-
   interface FileManager {
     createNewMarkdownFile(): Promise<TFile>;
   }

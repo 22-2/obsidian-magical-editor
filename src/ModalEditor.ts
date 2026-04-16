@@ -1,13 +1,8 @@
-import {
-    App,
-    Modal,
-    TFile,
-    WorkspaceLeaf
-} from "obsidian";
+import { App, Modal, TFile, WorkspaceLeaf } from "obsidian";
 import { BaseEditorOptions } from "./BaseEditor";
+import { createHiddenLeaf } from "./editors";
 import { FakeEditor, FakeEditorOptions } from "./FakeEditor";
 import { MirrorEditor } from "./MirrorEditor";
-import { createHiddenLeaf } from "./editors";
 
 export interface ModalEditorOptions {
   /** Initial content of the editor. Default: `""` */
@@ -55,7 +50,6 @@ export interface ModalEditorOptions {
   onEnter?: FakeEditorOptions["onEnter"];
 }
 
-
 /**
  * A ready-to-use Modal that embeds a full Obsidian Markdown editor.
  *
@@ -82,7 +76,10 @@ export class ModalEditor extends Modal {
   public editor!: MirrorEditor | FakeEditor;
   private ownedHostLeaf: WorkspaceLeaf | null = null;
 
-  constructor(app: App, private options: ModalEditorOptions) {
+  constructor(
+    app: App,
+    private options: ModalEditorOptions,
+  ) {
     super(app);
   }
 
@@ -99,7 +96,9 @@ export class ModalEditor extends Modal {
     modalEl.addClass("magical-editor-modal");
 
     // Apply background blur directly to the backdrop
-    const modalBg = containerEl.querySelector(".modal-bg") as HTMLElement | null;
+    const modalBg = containerEl.querySelector(
+      ".modal-bg",
+    ) as HTMLElement | null;
     if (modalBg) {
       modalBg.setCssStyles({
         backdropFilter: "blur(12px)",
@@ -140,7 +139,9 @@ export class ModalEditor extends Modal {
       boxSizing: "border-box",
     });
 
-    const closeBtn = modalEl.querySelector(".modal-close-button") as HTMLElement | null;
+    const closeBtn = modalEl.querySelector(
+      ".modal-close-button",
+    ) as HTMLElement | null;
     if (closeBtn) {
       closeBtn.setCssStyles({
         position: "absolute",
@@ -149,7 +150,9 @@ export class ModalEditor extends Modal {
         zIndex: "99",
       });
     }
-    setTimeout(() => { modalBg?.setCssStyles({ opacity: "1" }); });
+    setTimeout(() => {
+      modalBg?.setCssStyles({ opacity: "1" });
+    });
     return modalBg;
   }
 
@@ -195,7 +198,9 @@ export class ModalEditor extends Modal {
       width: "100%",
     });
 
-    const editorArea = contentEl.createDiv({ cls: "magical-editor-modal-editor-area" });
+    const editorArea = contentEl.createDiv({
+      cls: "magical-editor-modal-editor-area",
+    });
     // editorArea must fill the remaining height so .cm-scroller gets a bounded height.
     // flex:1 + min-height:0 is the standard flexbox pattern for overflow in a flex child.
     editorArea.setCssStyles({
@@ -216,7 +221,6 @@ export class ModalEditor extends Modal {
     this.ownedHostLeaf ??= createHiddenLeaf(this.app);
     return this.ownedHostLeaf;
   }
-
 
   /** Returns the current content of the editor. */
   getContent(): string {

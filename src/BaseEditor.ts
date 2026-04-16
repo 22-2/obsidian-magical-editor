@@ -41,7 +41,9 @@ export interface EditorSetupResult {
 
 type ContentListener = (content: string) => void;
 
-export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditorOptions> {
+export abstract class BaseEditor<
+  TOptions extends BaseEditorOptions = BaseEditorOptions,
+> {
   protected _impl!: EditorImplementation;
 
   readonly ready: Promise<this>;
@@ -51,7 +53,8 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
   private leafToMount: WorkspaceLeaf | null = null;
   private cleanup: (() => void) | null = null;
   private focusinHandler: (() => void) | null = null;
-  private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null = null;
+  private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null =
+    null;
   private placeholderEl: HTMLElement | null = null;
   private contentListeners = new Set<ContentListener>();
   private pendingMountEl: HTMLElement | null = null;
@@ -157,7 +160,11 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     el.appendChild(this.leafToMount.containerEl);
   }
 
-  registerHotkey(hotkey: Modifier[] | null, key: string, callback: KeymapEventListener): void {
+  registerHotkey(
+    hotkey: Modifier[] | null,
+    key: string,
+    callback: KeymapEventListener,
+  ): void {
     if (!this._impl) {
       this.pendingHotkeys.push({ hotkey, key, callback });
       return;
@@ -194,9 +201,13 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     }
 
     if (this.focusinHandler && this._impl) {
-      this._impl.view.containerEl.removeEventListener("focusin", this.focusinHandler);
+      this._impl.view.containerEl.removeEventListener(
+        "focusin",
+        this.focusinHandler,
+      );
       this.focusinHandler = null;
-      (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor = this.prevActiveEditor ?? null;
+      (this.app.workspace as WorkspaceWithActiveEditor)._activeEditor =
+        this.prevActiveEditor ?? null;
       this.prevActiveEditor = null;
     }
 
@@ -226,7 +237,8 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
     };
 
     patchToggleSourceCommand(this.app);
-    const { impl, leafToMount, trackWorkspaceChanges, cleanup } = await this.createImplementation(handleContentChange);
+    const { impl, leafToMount, trackWorkspaceChanges, cleanup } =
+      await this.createImplementation(handleContentChange);
     if (this.destroyed) {
       impl.destroy();
       cleanup?.();
@@ -287,7 +299,9 @@ export abstract class BaseEditor<TOptions extends BaseEditorOptions = BaseEditor
   }
 
   private applyStyles(): void {
-    this._impl.view.editor.cm.contentDOM.setCssStyles(EDITOR_CONTENT_PADDING_STYLE);
+    this._impl.view.editor.cm.contentDOM.setCssStyles(
+      EDITOR_CONTENT_PADDING_STYLE,
+    );
   }
 
   private registerMousedownHandler(): void {

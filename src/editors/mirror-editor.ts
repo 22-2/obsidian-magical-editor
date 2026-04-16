@@ -12,8 +12,7 @@ export class MirrorEditorAdapter implements EditorImplementation {
     return this.view.editor;
   }
 
-  destroy(): void {
-  }
+  destroy(): void {}
 
   private suppressSaves(): void {
     this.view.save = async () => {};
