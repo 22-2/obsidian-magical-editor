@@ -14,6 +14,8 @@ export interface FakeEditorOptions extends BaseEditorOptions {
     shift: boolean,
   ) => boolean | void;
   onChange?: (content: string) => void;
+  onBlur?: () => void;
+  onFocus?: () => void;
 }
 
 export class FakeEditor extends BaseEditor<FakeEditorOptions> {
@@ -38,6 +40,12 @@ export class FakeEditor extends BaseEditor<FakeEditorOptions> {
         },
         onEscape: () => {
           this.options.onEscape?.();
+        },
+        onBlur: () => {
+          this.options.onBlur?.();
+        },
+        onFocus: () => {
+          this.options.onFocus?.();
         },
         parentScope:
           this.options.parentScope ||

@@ -153,6 +153,7 @@ interface MarkdownEditorProps {
 	onEscape: (editor: EmbeddableMarkdownEditor) => void;
 	onSubmit: (editor: EmbeddableMarkdownEditor) => void;
 	onBlur: (editor: EmbeddableMarkdownEditor) => void;
+	onFocus: (editor: EmbeddableMarkdownEditor) => void;
 	onPaste: (e: ClipboardEvent, editor: EmbeddableMarkdownEditor) => void;
 	onChange: (update: ViewUpdate) => void;
 	parentScope?: Scope;
@@ -170,6 +171,7 @@ const defaultProperties: MarkdownEditorProps = {
 	onSubmit: () => {},
 	// NOTE: Blur takes precedence over Escape (this can be changed)
 	onBlur: () => {},
+	onFocus: () => {},
 	onPaste: () => {},
 	onChange: () => {},
 };
@@ -494,6 +496,14 @@ export class EmbeddableMarkdownEditor {
 			originalOnUpdate(update, changed);
 			if (changed) this.options.onChange(update);
 		};
+
+    const editorEl = (this.editor as unknown as { containerEl: HTMLElement }).containerEl;
+    editorEl.addEventListener("focusin", () => {
+      this.options.onFocus(this);
+    });
+    editorEl.addEventListener("focusout", () => {
+      this.options.onBlur(this);
+    });
 	}
 
 	// Get the current editor value
