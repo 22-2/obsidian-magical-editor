@@ -267,8 +267,8 @@ export abstract class BaseEditor<
     }
 
     this.enableActiveEditorSync();
-    this.registerMousedownHandler();
-    this.applyStyles();
+    // this.registerMousedownHandler();
+    // this.applyStyles();
     this.initPlaceholder();
     this.applyReadOnlyState();
     this.flushPendingOperations();
@@ -298,11 +298,11 @@ export abstract class BaseEditor<
     handler();
   }
 
-  private applyStyles(): void {
-    this._impl.view.editor.cm.contentDOM.setCssStyles(
-      EDITOR_CONTENT_PADDING_STYLE,
-    );
-  }
+  // private applyStyles(): void {
+  //   this._impl.view.editor.cm.contentDOM.setCssStyles(
+  //     EDITOR_CONTENT_PADDING_STYLE,
+  //   );
+  // }
 
   private registerMousedownHandler(): void {
     const sizer = this._impl.view.containerEl.find(".cm-sizer");

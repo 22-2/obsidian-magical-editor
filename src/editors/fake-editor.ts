@@ -5,7 +5,7 @@ import { EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 
 export class FakeEditorAdapter implements EditorImplementation {
   constructor(public readonly view: EmbeddableMarkdownEditor) {
-    this.applyStyles();
+    // this.applyStyles();
   }
 
   get editor(): Editor {
@@ -16,16 +16,16 @@ export class FakeEditorAdapter implements EditorImplementation {
     this.view.destroy();
   }
 
-  private applyStyles(): void {
-    this.view.containerEl.setCssStyles({
-      height: "100%",
-      width: "100%",
-      display: "flex",
-      flexDirection: "column",
-    });
+  // private applyStyles(): void {
+  //   this.view.containerEl.setCssStyles({
+  //     height: "100%",
+  //     width: "100%",
+  //     display: "flex",
+  //     flexDirection: "column",
+  //   });
 
-    if (this.view.activeCM?.contentDOM) {
-      this.view.activeCM.contentDOM.setCssStyles(EDITOR_CONTENT_PADDING_STYLE);
-    }
-  }
+  //   if (this.view.activeCM?.contentDOM) {
+  //     this.view.activeCM.contentDOM.setCssStyles(EDITOR_CONTENT_PADDING_STYLE);
+  //   }
+  // }
 }

@@ -420,13 +420,13 @@ export class EmbeddableMarkdownEditor {
         },
       // Thino subclasses and overrides updateBottomPadding to do nothing.
       // This prevents layout crashes in non-standard environments.
-      updateBottomPadding: (
-        originalMethod: (this: MarkdownEditorInstance) => void,
-      ) =>
-        function (this: MarkdownEditorInstance) {
-          if (this.owner === mockView) return;
-          return originalMethod.call(this);
-        },
+      // updateBottomPadding: (
+      //   originalMethod: (this: MarkdownEditorInstance) => void,
+      // ) =>
+      //   function (this: MarkdownEditorInstance) {
+      //     if (this.owner === mockView) return;
+      //     return originalMethod.call(this);
+      //   },
     });
 
     // Create the editor with the app instance
