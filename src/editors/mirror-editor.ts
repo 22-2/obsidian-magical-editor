@@ -1,5 +1,5 @@
 import { Editor, MarkdownView } from "obsidian";
-import { EditorImplementation } from "./index";
+import { type EditorImplementation } from "./index";
 
 export class MirrorEditorAdapter implements EditorImplementation {
   constructor(public readonly view: MarkdownView) {

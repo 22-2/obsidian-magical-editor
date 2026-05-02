@@ -1,6 +1,5 @@
 import { Editor } from "obsidian";
-import { EditorImplementation } from "./index";
-import { EDITOR_CONTENT_PADDING_STYLE } from "./internal/editor-content-style";
+import { type EditorImplementation } from "./index";
 import { EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 
 export class FakeEditorAdapter implements EditorImplementation {

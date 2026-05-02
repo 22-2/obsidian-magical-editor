@@ -1,7 +1,6 @@
-import { expect, test } from "obsidian-e2e-toolkit";
 import path from "node:path";
-import { ObsidianAPI } from "obsidian-e2e-toolkit";
 import { fileURLToPath } from "node:url";
+import { expect, ObsidianAPI, test } from "obsidian-e2e-toolkit";
 
 /**
  * Magical Editor Modal E2E Test Suite

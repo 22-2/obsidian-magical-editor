@@ -1,20 +1,19 @@
 import {
   App,
   Editor,
-  EventRef,
-  KeymapEventListener,
+  type EventRef,
+  type KeymapEventListener,
   MarkdownView,
-  Modifier,
+  type Modifier,
   Scope,
   Workspace,
   WorkspaceLeaf,
 } from "obsidian";
 import {
-  EditorImplementation,
+  type EditorImplementation,
   patchToggleSourceCommand,
   unpatchToggleSourceCommand,
 } from "./editors";
-import { EDITOR_CONTENT_PADDING_STYLE } from "./editors/internal/editor-content-style";
 import { EmbeddableMarkdownEditor } from "./editors/internal/magical-embeddable-editor";
 
 interface WorkspaceWithActiveEditor extends Workspace {

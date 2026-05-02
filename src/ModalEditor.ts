@@ -1,7 +1,7 @@
 import { App, Modal, TFile, WorkspaceLeaf } from "obsidian";
-import { BaseEditorOptions } from "./BaseEditor";
+import { type BaseEditorOptions } from "./BaseEditor";
 import { createHiddenLeaf } from "./editors";
-import { FakeEditor, FakeEditorOptions } from "./FakeEditor";
+import { FakeEditor, type FakeEditorOptions } from "./FakeEditor";
 import { MirrorEditor } from "./MirrorEditor";
 
 export interface ModalEditorOptions {

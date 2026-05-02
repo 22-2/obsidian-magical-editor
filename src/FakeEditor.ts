@@ -1,5 +1,9 @@
 import { App, MarkdownView } from "obsidian";
-import { BaseEditor, BaseEditorOptions, EditorSetupResult } from "./BaseEditor";
+import {
+  BaseEditor,
+  type BaseEditorOptions,
+  type EditorSetupResult,
+} from "./BaseEditor";
 import { createFakeLeaf } from "./editors";
 import { FakeEditorAdapter } from "./editors/fake-editor";
 import {

@@ -1,5 +1,9 @@
 import { App, MarkdownView, TFile } from "obsidian";
-import { BaseEditor, BaseEditorOptions, EditorSetupResult } from "./BaseEditor";
+import {
+  BaseEditor,
+  type BaseEditorOptions,
+  type EditorSetupResult,
+} from "./BaseEditor";
 import { createHiddenLeaf } from "./editors";
 import { MirrorEditorAdapter } from "./editors/mirror-editor";
 

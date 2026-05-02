@@ -1,11 +1,11 @@
 import {
   App,
   Component,
-  Hotkey,
-  MarkdownScrollableEditView,
+  type Hotkey,
+  type MarkdownScrollableEditView,
   Scope,
   TFile,
-  WidgetEditorView,
+  type WidgetEditorView,
   Workspace,
   WorkspaceLeaf,
 } from "obsidian";
@@ -273,7 +273,7 @@ export class EmbeddableMarkdownEditor {
     });
 
     // @ts-expect-error
-    this.app.scope.keys = (this.app.scope as { keys: Hotkey[]}).keys.filter(
+    this.app.scope.keys = (this.app.scope as { keys: Hotkey[] }).keys.filter(
       (binding) => binding.key !== "Escape",
     ); // Remove Escape handler added by Obsidian
     this.scope.register([], "Escape", () => {

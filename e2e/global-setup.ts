@@ -1,6 +1,6 @@
+import { build } from "esbuild";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

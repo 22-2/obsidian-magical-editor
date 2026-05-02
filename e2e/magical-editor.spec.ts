@@ -1,8 +1,7 @@
 
 import path from "node:path";
-import { ObsidianAPI } from "obsidian-e2e-toolkit";
-import { expect, test } from "obsidian-e2e-toolkit";
-import { fileURLToPath } from "url"
+import { expect, ObsidianAPI, test } from "obsidian-e2e-toolkit";
+import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const HARNESS_PATH = path.join(__dirname, "fixtures/magical-editor-harness");
