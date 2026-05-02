@@ -267,8 +267,6 @@ export abstract class BaseEditor<
     }
 
     this.enableActiveEditorSync();
-    // this.registerMousedownHandler();
-    // this.applyStyles();
     this.initPlaceholder();
     this.applyReadOnlyState();
     this.flushPendingOperations();
@@ -296,29 +294,6 @@ export abstract class BaseEditor<
     this.focusinHandler = handler;
     this._impl.view.containerEl.addEventListener("focusin", handler);
     handler();
-  }
-
-  // private applyStyles(): void {
-  //   this._impl.view.editor.cm.contentDOM.setCssStyles(
-  //     EDITOR_CONTENT_PADDING_STYLE,
-  //   );
-  // }
-
-  private registerMousedownHandler(): void {
-    const sizer = this._impl.view.containerEl.find(".cm-sizer");
-    if (!sizer) {
-      return;
-    }
-
-    sizer.addEventListener("mousedown", (event: MouseEvent) => {
-      const pos = this._impl.view.editor.posAtMouse(event);
-      setTimeout(() => {
-        if (pos) {
-          this._impl.view.editor.setSelection(pos, pos);
-        }
-        this._impl.view.editor.focus();
-      });
-    });
   }
 
   private initPlaceholder(): void {
