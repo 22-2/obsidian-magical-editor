@@ -1,6 +1,6 @@
 {
   "name": "@22-2/obsidian-magical-editor",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "type": "module",
   "description": "A reusable inline MarkdownView editor wrapper for Obsidian plugins",
   "publishConfig": {
