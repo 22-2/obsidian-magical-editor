@@ -491,14 +491,15 @@ export class EmbeddableMarkdownEditor {
       if (changed) this.options.onChange(update);
     };
 
-    const editorEl = (this.editor as unknown as { containerEl: HTMLElement })
-      .containerEl;
-    editorEl.addEventListener("focusin", () => {
-      this.options.onFocus(this);
-    });
-    editorEl.addEventListener("focusout", () => {
-      this.options.onBlur(this);
-    });
+    // buildLocalExtensions の中で EditorView.domEventHandlers で blur/focusin を登録してるのに、なぜここでも別経路で focusin/focusout を addEventListener してるため不要
+    // const editorEl = (this.editor as unknown as { containerEl: HTMLElement })
+    //   .containerEl;
+    // editorEl.addEventListener("focusin", () => {
+    //   this.options.onFocus(this);
+    // });
+    // editorEl.addEventListener("focusout", () => {
+    //   this.options.onBlur(this);
+    // });
   }
 
   // Get the current editor value

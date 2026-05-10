@@ -62,6 +62,7 @@ export class FakeEditor extends BaseEditor<FakeEditorOptions> {
     return {
       impl: new FakeEditorAdapter(view),
       leafToMount,
+      trackWorkspaceChanges: false,
     };
   }
 }
