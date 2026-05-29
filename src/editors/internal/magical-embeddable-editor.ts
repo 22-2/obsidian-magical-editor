@@ -166,7 +166,7 @@ interface MarkdownEditorProps {
     mod: boolean,
     shift: boolean,
   ) => boolean;
-  onEscape: (editor: EmbeddableMarkdownEditor) => void;
+  onEscape?: (editor: EmbeddableMarkdownEditor) => void;
   onSubmit: (editor: EmbeddableMarkdownEditor) => void;
   onBlur: (editor: EmbeddableMarkdownEditor) => void;
   onFocus: (editor: EmbeddableMarkdownEditor) => void;
@@ -174,6 +174,8 @@ interface MarkdownEditorProps {
   onChange: (update: ViewUpdate) => void;
   parentScope?: Scope;
 }
+
+const noop = () => {};
 
 const defaultProperties: MarkdownEditorProps = {
   cursorLocation: { anchor: 0, head: 0 },
@@ -183,13 +185,13 @@ const defaultProperties: MarkdownEditorProps = {
   placeholder: "",
 
   onEnter: () => false,
-  onEscape: () => {},
-  onSubmit: () => {},
+  onEscape: noop,
+  onSubmit: noop,
   // NOTE: Blur takes precedence over Escape (this can be changed)
-  onBlur: () => {},
-  onFocus: () => {},
-  onPaste: () => {},
-  onChange: () => {},
+  onBlur: noop,
+  onFocus: noop,
+  onPaste: noop,
+  onChange: noop,
 };
 
 // app.workspace.activeEditorにセットされる
@@ -207,7 +209,7 @@ export class EmbeddableMarkdownEditor {
     this.options.onEnter(this, true, false);
     return false;
   };
-  private ctrlEnterKeyHandler: KeymapEventHandler | null = null;
+  private keymapCtrlEnterKeyHandler: KeymapEventHandler | null = null;
 
   // Expose commonly accessed properties
   get editorEl(): HTMLElement {
@@ -273,7 +275,7 @@ export class EmbeddableMarkdownEditor {
     this.scope = new Scope(this.options.parentScope || app.scope);
 
     // Prevent Mod+Enter default behavior and trigger onSubmit
-    this.ctrlEnterKeyHandler = this.scope.register(["Ctrl"], "Enter", this.ctrlEnterHandler);
+    this.keymapCtrlEnterKeyHandler = this.scope.register(["Ctrl"], "Enter", this.ctrlEnterHandler);
 
     // @ts-expect-error
     this.app.scope.keys = (this.app.scope as { keys: Hotkey[] }).keys.filter(
@@ -394,7 +396,7 @@ export class EmbeddableMarkdownEditor {
               {
                 key: "Escape",
                 run: () => {
-                  self.options.onEscape(self);
+                  self.options.onEscape?.(self);
                   return true;
                 },
                 preventDefault: true,
@@ -525,13 +527,13 @@ export class EmbeddableMarkdownEditor {
   // Toggle Ctrl+Enter keybinding
   toggleCtrlEnterKeyBinding(enabled: boolean): void {
     if (enabled) {
-      if (!this.ctrlEnterKeyHandler) {
-        this.ctrlEnterKeyHandler = this.scope.register(["Ctrl"], "Enter", this.ctrlEnterHandler);
+      if (!this.keymapCtrlEnterKeyHandler) {
+        this.keymapCtrlEnterKeyHandler = this.scope.register(["Ctrl"], "Enter", this.ctrlEnterHandler);
       }
     } else {
-      if (this.ctrlEnterKeyHandler) {
-        this.scope.unregister(this.ctrlEnterKeyHandler);
-        this.ctrlEnterKeyHandler = null;
+      if (this.keymapCtrlEnterKeyHandler) {
+        this.scope.unregister(this.keymapCtrlEnterKeyHandler);
+        this.keymapCtrlEnterKeyHandler = null;
       }
     }
   }
