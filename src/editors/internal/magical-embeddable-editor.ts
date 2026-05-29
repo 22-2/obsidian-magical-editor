@@ -202,6 +202,7 @@ export class EmbeddableMarkdownEditor {
   editMode: MarkdownEditorInstance;
   mockView: MockView;
   app: App;
+  private enabledKeybindings = { ctrlEnter: true };
 
   // Expose commonly accessed properties
   get editorEl(): HTMLElement {
@@ -268,6 +269,7 @@ export class EmbeddableMarkdownEditor {
 
     // Prevent Mod+Enter default behavior and trigger onSubmit
     this.scope.register(["Ctrl"], "Enter", () => {
+      if (!this.enabledKeybindings.ctrlEnter) return false;
       this.options.onEnter(this, true, false);
       return false;
     });
@@ -517,6 +519,11 @@ export class EmbeddableMarkdownEditor {
   // Register cleanup callback
   register(cb: (editor: EmbeddableMarkdownEditor) => void): void {
     this.editMode.register(cb as any);
+  }
+
+  // Toggle Ctrl+Enter keybinding
+  toggleCtrlEnterKeyBinding(enabled?: boolean): void {
+    this.enabledKeybindings.ctrlEnter = enabled ?? !this.enabledKeybindings.ctrlEnter;
   }
 
   // Clean up method that ensures proper destruction
