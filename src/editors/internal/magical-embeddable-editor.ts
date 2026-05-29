@@ -269,7 +269,7 @@ export class EmbeddableMarkdownEditor {
 
     // Prevent Mod+Enter default behavior and trigger onSubmit
     this.scope.register(["Ctrl"], "Enter", () => {
-      if (!this.enabledKeybindings.ctrlEnter) return false;
+      if (!this.enabledKeybindings.ctrlEnter) return true;
       this.options.onEnter(this, true, false);
       return false;
     });
