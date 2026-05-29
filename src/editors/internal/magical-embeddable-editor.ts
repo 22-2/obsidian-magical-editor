@@ -2,6 +2,7 @@ import {
   App,
   Component,
   type Hotkey,
+  type KeymapEventHandler,
   type MarkdownScrollableEditView,
   Scope,
   TFile,
@@ -202,7 +203,11 @@ export class EmbeddableMarkdownEditor {
   editMode: MarkdownEditorInstance;
   mockView: MockView;
   app: App;
-  private enabledKeybindings = { ctrlEnter: true };
+  private ctrlEnterHandler = () => {
+    this.options.onEnter(this, true, false);
+    return false;
+  };
+  private ctrlEnterKeyHandler: KeymapEventHandler | null = null;
 
   // Expose commonly accessed properties
   get editorEl(): HTMLElement {
@@ -268,11 +273,7 @@ export class EmbeddableMarkdownEditor {
     this.scope = new Scope(this.options.parentScope || app.scope);
 
     // Prevent Mod+Enter default behavior and trigger onSubmit
-    this.scope.register(["Ctrl"], "Enter", () => {
-      if (!this.enabledKeybindings.ctrlEnter) return true;
-      this.options.onEnter(this, true, false);
-      return false;
-    });
+    this.ctrlEnterKeyHandler = this.scope.register(["Ctrl"], "Enter", this.ctrlEnterHandler);
 
     // @ts-expect-error
     this.app.scope.keys = (this.app.scope as { keys: Hotkey[] }).keys.filter(
@@ -522,8 +523,17 @@ export class EmbeddableMarkdownEditor {
   }
 
   // Toggle Ctrl+Enter keybinding
-  toggleCtrlEnterKeyBinding(enabled?: boolean): void {
-    this.enabledKeybindings.ctrlEnter = enabled ?? !this.enabledKeybindings.ctrlEnter;
+  toggleCtrlEnterKeyBinding(enabled: boolean): void {
+    if (enabled) {
+      if (!this.ctrlEnterKeyHandler) {
+        this.ctrlEnterKeyHandler = this.scope.register(["Ctrl"], "Enter", this.ctrlEnterHandler);
+      }
+    } else {
+      if (this.ctrlEnterKeyHandler) {
+        this.scope.unregister(this.ctrlEnterKeyHandler);
+        this.ctrlEnterKeyHandler = null;
+      }
+    }
   }
 
   // Clean up method that ensures proper destruction
