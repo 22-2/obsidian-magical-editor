@@ -23,6 +23,8 @@ interface WorkspaceWithActiveEditor extends Workspace {
 export interface BaseEditorOptions {
   hostLeaf?: WorkspaceLeaf;
   initialContent?: string;
+  /** Focus the editor after initialization. Default: `true`. */
+  autoFocus?: boolean;
   onChange?: (content: string) => void;
   onEscape?: () => void;
   placeholder?: string;
@@ -271,7 +273,11 @@ export abstract class BaseEditor<
     this.flushPendingOperations();
 
     window.setTimeout(() => {
-      if (this.destroyed || !this._impl) {
+      if (
+        this.destroyed ||
+        !this._impl ||
+        this.options.autoFocus === false
+      ) {
         return;
       }
 

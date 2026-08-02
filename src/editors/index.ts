@@ -1,11 +1,11 @@
 import { around } from "monkey-around";
 import {
   App,
-  Command,
   Editor,
   MarkdownView,
   Workspace,
   WorkspaceLeaf,
+  type Command,
 } from "obsidian";
 import { EmbeddableMarkdownEditor } from "./internal/magical-embeddable-editor";
 

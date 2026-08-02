@@ -127,6 +127,11 @@ const content = useSyncExternalStore(
 
 親となるビューが実装する必要があるインターフェース。
 
+### Focus behavior
+
+`FakeEditor`, `MirrorEditor`, and `ModalEditor` focus the editor after initialization by default.
+Set `autoFocus: false` to preserve the currently focused element. Calling `focus()` explicitly still works.
+
 ## License
 
 MIT

@@ -41,6 +41,9 @@ export interface ModalEditorOptions {
 
   hostLeaf?: WorkspaceLeaf;
 
+  /** Focus the editor after initialization. Default: `true`. */
+  autoFocus?: BaseEditorOptions["autoFocus"];
+
   isReadOnly?: BaseEditorOptions["isReadOnly"];
 
   readonlyPlaceholder?: BaseEditorOptions["readonlyPlaceholder"];
@@ -163,6 +166,7 @@ export class ModalEditor extends Modal {
     if (this.options.file) {
       this.editor = new MirrorEditor(this.app, {
         hostLeaf,
+        autoFocus: this.options.autoFocus,
         file: this.options.file,
         initialContent: this.options.initialContent,
         onChange: this.options.onChange,
@@ -175,6 +179,7 @@ export class ModalEditor extends Modal {
     } else {
       this.editor = new FakeEditor(this.app, {
         hostLeaf,
+        autoFocus: this.options.autoFocus,
         initialContent: this.options.initialContent,
         onChange: this.options.onChange,
         onEscape: () => this.close(),
