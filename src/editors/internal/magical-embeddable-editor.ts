@@ -11,7 +11,7 @@ import {
   WorkspaceLeaf,
 } from "obsidian";
 
-import { EditorSelection, Prec } from "@codemirror/state";
+import { EditorSelection, type Extension, Prec } from "@codemirror/state";
 import { EditorView, keymap, ViewUpdate } from "@codemirror/view";
 
 import { around } from "monkey-around";
@@ -419,6 +419,17 @@ export class EmbeddableMarkdownEditor {
             }
 
             extensions.push(Prec.highest(keymap.of(keyBindings)));
+
+            // Inject workspace-level editor extensions for virtual editors.
+            // MarkdownView.buildLocalExtensions() normally includes
+            // app.workspace.editorExtensions (populated by
+            // Plugin.registerEditorExtension), but virtual editors don't
+            // inherit from MarkdownView so they miss these extensions.
+            const workspaceExts: Extension[] =
+              (this.app.workspace as unknown as { editorExtensions: Extension[] }).editorExtensions;
+            if (workspaceExts.length) {
+              extensions.push(...workspaceExts);
+            }
           }
 
           return extensions;
