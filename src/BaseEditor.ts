@@ -1,4 +1,13 @@
 import {
+  Compartment,
+  EditorState,
+  Prec,
+  StateEffect,
+  type Extension,
+} from "@codemirror/state";
+import { EditorView, placeholder } from "@codemirror/view";
+import { around } from "monkey-around";
+import {
   App,
   Editor,
   type EventRef,
@@ -40,6 +49,12 @@ export interface EditorSetupResult {
   cleanup?: () => void;
 }
 
+interface ViewWithLocalExtensions {
+  editMode: {
+    buildLocalExtensions(): Extension[];
+  };
+}
+
 type ContentListener = (content: string) => void;
 
 export abstract class BaseEditor<
@@ -50,13 +65,13 @@ export abstract class BaseEditor<
   readonly ready: Promise<this>;
 
   private onChangeRef: EventRef | null = null;
-  private placeholderChangeRef: EventRef | null = null;
   private leafToMount: WorkspaceLeaf | null = null;
   private cleanup: (() => void) | null = null;
   private focusinHandler: (() => void) | null = null;
   private prevActiveEditor: MarkdownView | EmbeddableMarkdownEditor | null =
     null;
-  private placeholderEl: HTMLElement | null = null;
+  private editorExtensionCompartment = new Compartment();
+  private editorExtensionCleanup: (() => void) | null = null;
   private contentListeners = new Set<ContentListener>();
   private pendingMountEl: HTMLElement | null = null;
   private pendingFocus = false;
@@ -111,7 +126,6 @@ export abstract class BaseEditor<
 
     this.pendingInitialContentSync = false;
     this.editor.setValue(content);
-    this.updatePlaceholderVisibility();
   }
 
   setCursor(pos: number): void {
@@ -196,10 +210,8 @@ export abstract class BaseEditor<
       this.app.workspace.offref(this.onChangeRef);
       this.onChangeRef = null;
     }
-    if (this.placeholderChangeRef) {
-      this.app.workspace.offref(this.placeholderChangeRef);
-      this.placeholderChangeRef = null;
-    }
+    this.editorExtensionCleanup?.();
+    this.editorExtensionCleanup = null;
 
     if (this.focusinHandler && this._impl) {
       this._impl.view.containerEl.removeEventListener(
@@ -224,11 +236,6 @@ export abstract class BaseEditor<
     this.pendingMountEl = null;
     this.pendingHotkeys = [];
     unpatchToggleSourceCommand();
-
-    if (this.placeholderEl) {
-      this.placeholderEl.remove();
-      this.placeholderEl = null;
-    }
   }
 
   private async initialize(): Promise<void> {
@@ -302,74 +309,75 @@ export abstract class BaseEditor<
   }
 
   private initPlaceholder(): void {
-    this.updatePlaceholderText();
-    this.updatePlaceholderVisibility();
-    this.placeholderChangeRef = this.app.workspace.on("editor-change", () => {
-      this.updatePlaceholderVisibility();
+    const editMode = (this._impl.view as unknown as ViewWithLocalExtensions)
+      .editMode;
+    const self = this;
+
+    // Obsidian rebuilds local extensions when editor options or source mode change.
+    // Keep our compartment in that configuration, scoped to this editor instance.
+    this.editorExtensionCleanup = around(editMode, {
+      buildLocalExtensions: (original) =>
+        function (this: ViewWithLocalExtensions["editMode"]) {
+          return [
+            ...original.call(this),
+            self.editorExtensionCompartment.of(self.createEditorExtensions()),
+          ];
+        },
+    });
+    this.editor.cm.dispatch({
+      effects: StateEffect.appendConfig.of(
+        this.editorExtensionCompartment.of(this.createEditorExtensions()),
+      ),
     });
   }
 
-  private updatePlaceholderVisibility(): void {
-    if (!this.placeholderEl) {
-      return;
-    }
-
-    this.placeholderEl.setCssStyles({
-      display: this.getContent() ? "none" : "block",
-    });
-  }
-
-  private ensurePlaceholder(): void {
-    if (this.placeholderEl) {
-      return;
-    }
-
-    this._impl.view.containerEl.setCssStyles({ position: "relative" });
-    this.placeholderEl = this._impl.view.containerEl.createDiv({
-      cls: "magical-editor-placeholder",
-    });
-    this.placeholderEl.setCssStyles({
-      position: "absolute",
-      top: "var(--size-2-1)",
-      left: "var(--size-2-1)",
-      pointerEvents: "none",
-      color: "var(--text-muted)",
-      opacity: "0.5",
-      userSelect: "none",
-      fontSize: "var(--font-text-size)",
-      zIndex: "10",
-      whiteSpace: "pre-wrap",
-      width: "calc(100% - var(--size-4-10))",
-    });
-  }
-
-  private updatePlaceholderText(): void {
-    const placeholderText = this.options.isReadOnly
+  private createEditorExtensions(): Extension {
+    const text = this.options.isReadOnly
       ? (this.options.readonlyPlaceholder ?? this.options.placeholder)
       : this.options.placeholder;
 
-    if (!placeholderText) {
-      if (this.placeholderEl) {
-        this.placeholderEl.setText("");
-        this.updatePlaceholderVisibility();
-      }
-      return;
-    }
+    return [
+      text
+        ? placeholder((view) => {
+            const span = view.dom.ownerDocument.createElement("span");
+            span.className = "magical-editor-placeholder";
+            span.textContent = text;
+            return span;
+          })
+        : [],
+      EditorView.theme({
+        ".cm-placeholder": {
+          color: "var(--text-muted)",
+          opacity: "0.5",
+          whiteSpace: "pre-wrap",
+        },
+      }),
+      // Obsidian also supplies contenteditable through contentAttributes.
+      // Override both sources so option updates cannot re-enable a read-only editor.
+      Prec.highest([
+        EditorView.editable.of(!this.options.isReadOnly),
+        EditorState.readOnly.of(!!this.options.isReadOnly),
+        EditorView.contentAttributes.of({
+          contenteditable: String(!this.options.isReadOnly),
+        }),
+      ]),
+    ];
+  }
 
-    this.ensurePlaceholder();
-    this.placeholderEl?.setText(placeholderText);
-    this.updatePlaceholderVisibility();
+  private updatePlaceholderText(): void {
+    // Reconfigure only this compartment so document, selection and other extensions survive.
+    this.editor.cm.dispatch({
+      effects: this.editorExtensionCompartment.reconfigure(
+        this.createEditorExtensions(),
+      ),
+    });
   }
 
   private applyReadOnlyState(): void {
-    if (this.options.isReadOnly) {
-      this.editor.cm.contentDOM.contentEditable = "false";
-      this._impl.view.containerEl.addClass("is-read-only");
-      return;
-    }
-
-    this.editor.cm.contentDOM.contentEditable = "true";
-    this._impl.view.containerEl.removeClass("is-read-only");
+    this._impl.view.containerEl.toggleClass(
+      "is-read-only",
+      !!this.options.isReadOnly,
+    );
   }
 
   private notifyContentListeners(content: string): void {

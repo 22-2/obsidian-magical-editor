@@ -12,7 +12,7 @@ import {
 } from "obsidian";
 
 import { EditorSelection, type Extension, Prec } from "@codemirror/state";
-import { EditorView, keymap, ViewUpdate } from "@codemirror/view";
+import { EditorView, keymap, placeholder, ViewUpdate } from "@codemirror/view";
 
 import { around } from "monkey-around";
 import { Editor } from "obsidian";
@@ -350,12 +350,9 @@ export class EmbeddableMarkdownEditor {
           // We check this.owner === mockView instead of this === self.editMode
           // because self.editMode is undefined during the constructor execution!
           if (this.owner === mockView) {
-            // Add placeholder if configured
+            // Let CodeMirror position the hint in its line layout so the cursor and input stay aligned.
             if (self.options.placeholder) {
-              extensions
-                .push
-                // placeholder(self.options.placeholder)
-                ();
+              extensions.push(placeholder(self.options.placeholder));
             }
 
             // Add paste, blur, and focus event handlers

@@ -37,13 +37,70 @@ async function openHarnessView(obsidian: ObsidianAPI, page: any, mode: (typeof M
   return { root, editor };
 }
 
-async function openHarnessModal(obsidian: any, page: any, mode: (typeof MODES)[number]) {
+async function openHarnessModal(obsidian: any, page: any, mode: "file" | "virtual") {
   await obsidian.command(`magical-editor-harness:open-${mode}-modal`);
 
   const root = page.locator(`.magical-editor-harness-modal.mode-${mode}`);
   const editor = root.locator(".cm-content");
   await expect(editor).toBeVisible({ timeout: 10000 });
   return { root, editor };
+}
+
+for (const mode of ["file", "virtual"] as const) {
+  test(`${mode} modal: placeholder 表示中も入力・再設定・モード切替できる`, async ({ obsidian }) => {
+    await obsidian.waitReady();
+    await obsidian.waitForPluginEnabled("magical-editor-harness");
+    const { root, editor } = await openHarnessModal(obsidian, obsidian.page, mode);
+    const hint = root.locator(".cm-placeholder .magical-editor-placeholder");
+    await expect(hint).toBeVisible();
+
+    // Exercise keyboard input while the widget exists; fill() replaces contenteditable DOM
+    // and would miss regressions in cursor placement and CodeMirror's input handling.
+    await editor.click();
+    await editor.pressSequentially("typed with placeholder");
+    await expect(editor).toContainText("typed with placeholder");
+    await expect(hint).toHaveCount(0);
+    await editor.press("Control+a");
+    await editor.press("Backspace");
+    await expect(hint).toBeVisible();
+
+    await obsidian.page.evaluate(() => {
+      const wrapper = window.app.plugins.plugins["magical-editor-harness"].activeModal.editor;
+      wrapper.setPlaceholder("Updated hint", "Read-only hint");
+      window.app.workspace.updateOptions();
+    });
+    await expect(hint).toHaveText("Updated hint");
+
+    await obsidian.command("editor:toggle-source");
+    await expect(hint).toHaveText("Updated hint");
+    const offset = await obsidian.page.evaluate(() => {
+      const wrapper = window.app.plugins.plugins["magical-editor-harness"].activeModal.editor;
+      const cm = wrapper.editor.cm;
+      const caret = cm.coordsAtPos(0);
+      const rect = cm.dom.querySelector(".magical-editor-placeholder").getBoundingClientRect();
+      return { x: Math.abs(rect.left - caret.left), y: Math.abs(rect.top - caret.top) };
+    });
+    expect(offset.x).toBeLessThan(2);
+    expect(offset.y).toBeLessThan(2);
+
+    await obsidian.page.evaluate(() => {
+      window.app.plugins.plugins["magical-editor-harness"].activeModal.editor.setReadOnly(true);
+      window.app.workspace.updateOptions();
+    });
+    await expect(hint).toHaveText("Read-only hint");
+    await expect(editor).toHaveAttribute("contenteditable", "false");
+    await editor.pressSequentially("blocked");
+    await expect(hint).toBeVisible();
+
+    await obsidian.page.evaluate(() => {
+      window.app.plugins.plugins["magical-editor-harness"].activeModal.editor.setReadOnly(false);
+    });
+    await expect(editor).toHaveAttribute("contenteditable", "true");
+    await editor.click();
+    await editor.pressSequentially("editable again");
+    await expect(editor).toContainText("editable again");
+    await expect(hint).toHaveCount(0);
+  });
 }
 
 for (const mode of MODES) {
