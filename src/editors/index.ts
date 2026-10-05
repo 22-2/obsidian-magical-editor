@@ -69,6 +69,8 @@ export function createHiddenLeaf(app: App): WorkspaceLeaf {
   const leaf = workspace.rootSplit
     ? workspace.createLeafInParent(workspace.rootSplit, 0)
     : app.workspace.getLeaf(true);
+  // Identify embedded editors before openFile() runs other plugins' view hooks.
+  leaf.containerEl.dataset.embeddedEditor = "true";
   leaf.containerEl.setCssStyles({ display: "none" });
   return leaf;
 }
