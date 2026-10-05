@@ -13,6 +13,8 @@
 
         // Type checking
         "strict": true,
+        // Obsidian's bundled declarations currently disagree with their own interfaces; keep checking project source while skipping dependency declaration internals.
+        "skipLibCheck": true,
 
         // Type definitions
         "lib": ["DOM", "ESNext"],

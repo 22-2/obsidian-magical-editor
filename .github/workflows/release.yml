@@ -1,0 +1,38 @@
+name: Publish package
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@22-2'
+      - run: pnpm install --frozen-lockfile
+      # バージョンとタグの一致を確認してから、release-it が作成したタグを公開する。
+      - name: Verify tag version
+        run: node -e "if (process.env.GITHUB_REF_NAME !== require('./package.json').version) process.exit(1)"
+      - run: pnpm build
+      - name: Verify package artifacts
+        run: test -s dist/index.mjs && test -s dist/index.d.mts
+      - run: pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
