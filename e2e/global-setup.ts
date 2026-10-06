@@ -1,4 +1,6 @@
 import { build } from "esbuild";
+import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,7 +35,21 @@ async function buildFixturePlugin(fixtureName: string) {
   });
 }
 
+// Electron 44 no longer downloads its binary in a postinstall script, so the
+// toolkit's preflight check fails on a fresh install. Download it up front.
+function ensureElectronBinary() {
+  const require = createRequire(import.meta.url);
+  const installScript = require.resolve("electron/install.js");
+  const result = spawnSync(process.execPath, [installScript], {
+    stdio: "inherit",
+  });
+  if (result.status !== 0) {
+    throw new Error(`Failed to install the Electron binary (exit code ${result.status})`);
+  }
+}
+
 export default async function globalSetup() {
+  ensureElectronBinary();
   await buildFixturePlugin("magical-editor-harness");
   await buildFixturePlugin("minimal-modal-opener");
 }
