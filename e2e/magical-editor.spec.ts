@@ -60,7 +60,7 @@ for (const mode of ["file", "virtual"] as const) {
     await editor.pressSequentially("typed with placeholder");
     await expect(editor).toContainText("typed with placeholder");
     await expect(hint).toHaveCount(0);
-    await editor.press("Control+a");
+    await editor.press("ControlOrMeta+a");
     await editor.press("Backspace");
     await expect(hint).toBeVisible();
 
