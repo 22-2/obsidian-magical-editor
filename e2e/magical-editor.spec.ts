@@ -103,6 +103,37 @@ for (const mode of ["file", "virtual"] as const) {
   });
 }
 
+test("read-only editor: テキストを選択でき、編集モードに戻すと入力できる", async ({ obsidian }) => {
+  await obsidian.waitReady();
+  await obsidian.waitForPluginEnabled("magical-editor-harness");
+  const { editor } = await openHarnessModal(obsidian, obsidian.page, "virtual");
+
+  await obsidian.page.evaluate(() => {
+    const wrapper = window.app.plugins.plugins["magical-editor-harness"].activeModal.editor;
+    wrapper.setContent("first line\nselectable line\nlast line");
+    wrapper.setReadOnly(true);
+  });
+  await expect(editor).toHaveAttribute("contenteditable", "false");
+
+  // Obsidian disables text selection (user-select: none) outside contenteditable="true",
+  // so a read-only editor must opt back in or the text cannot be selected or copied.
+  await editor.locator(".cm-line", { hasText: "selectable line" }).click({ clickCount: 3 });
+  const selected = await obsidian.page.evaluate(() => window.getSelection()?.toString() ?? "");
+  expect(selected).toContain("selectable line");
+
+  // Still read-only: typing must not change the document.
+  await editor.press("Backspace");
+  await expect(editor).toContainText("selectable line");
+
+  await obsidian.page.evaluate(() => {
+    window.app.plugins.plugins["magical-editor-harness"].activeModal.editor.setReadOnly(false);
+  });
+  await expect(editor).toHaveAttribute("contenteditable", "true");
+  await editor.click();
+  await editor.pressSequentially("typed");
+  await expect(editor).toContainText("typed");
+});
+
 for (const mode of MODES) {
   test.describe(`${mode} editor`, () => {
     test("placeholder が表示される", async ({ obsidian }) => {

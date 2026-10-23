@@ -361,6 +361,12 @@ export abstract class BaseEditor<
           contenteditable: String(!this.options.isReadOnly),
         }),
       ]),
+      // Obsidian sets `user-select: none` app-wide and only turns text selection back on
+      // for contenteditable="true" content. A read-only editor is contenteditable="false",
+      // so without this its text cannot be selected or copied.
+      this.options.isReadOnly
+        ? EditorView.theme({ ".cm-content": { userSelect: "text" } })
+        : [],
     ];
   }
 
