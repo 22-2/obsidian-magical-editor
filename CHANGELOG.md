@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.20](https://github.com/22-2/obsidian-magical-editor/compare/1.0.19...1.0.20) (2026-10-23)
+
+### Bug Fixes
+
+* **e2e:** download Electron binary before running tests ([08ce2c3](https://github.com/22-2/obsidian-magical-editor/commit/08ce2c37474e92b860de824a39f41751ebf03133))
+* make text selectable in read-only editors ([2aa42d5](https://github.com/22-2/obsidian-magical-editor/commit/2aa42d51bc56c14ccb8b4ee6ad7f123bc8797e28))
+
 ## [1.0.19](https://github.com/22-2/obsidian-magical-editor/compare/1.0.18...1.0.19) (2026-10-05)
 
 ### Bug Fixes
